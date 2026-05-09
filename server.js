@@ -55,24 +55,47 @@ io.on('connection', (socket) => {
   });
 });
 
-// The main game loop — runs 10 times per second
+// Returns true if the game ended (so the loop can stop early)
+function checkCollisions(state) {
+  for (const name of Object.keys(state.ghosts)) {
+    const g = state.ghosts[name];
+    if (g.col === state.pacman.col && g.row === state.pacman.row) {
+      if (g.scared) {
+        respawnGhost(name);
+      } else {
+        state.phase = 'gameover';
+        state.winner = 'ghosts';
+        io.emit('game_over', { winner: 'ghosts' });
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+// The main game loop — runs ~7 times per second
 setInterval(() => {
   const state = getState();
   if (state.phase !== 'playing') return;
 
-  // Move all human-controlled ghosts based on their last input
+  // Move all human-controlled ghosts
   for (const name of Object.keys(state.ghosts)) {
     const ghost = state.ghosts[name];
-    if (!ghost.isCPU) {
-      moveHumanGhost(ghost);
-    }
+    if (!ghost.isCPU) moveHumanGhost(ghost);
   }
 
-  // Move CPU-controlled ghosts using AI
+  // Move CPU-controlled ghosts
   moveCPUGhosts(state);
 
-  // Move Pacman using AI
+  // Check collisions now — catches ghosts that walked into Pacman
+  if (checkCollisions(state)) return;
+
+  // Move Pacman
   movePacman(state, state.dots);
+
+  // Check collisions again — catches Pacman walking into a ghost
+  // (this is what was missing before: the "tunneling" bug fix)
+  if (checkCollisions(state)) return;
 
   // Tick down scared timers
   for (const ghost of Object.values(state.ghosts)) {
@@ -85,23 +108,6 @@ setInterval(() => {
     }
   }
 
-  // Check ghost-Pacman collisions
-  for (const name of Object.keys(state.ghosts)) {
-    const g = state.ghosts[name];
-    if (g.col === state.pacman.col && g.row === state.pacman.row) {
-      if (g.scared) {
-        // Pacman eats the scared ghost — send it back to the ghost house
-        respawnGhost(name);
-      } else {
-        // Normal ghost touches Pacman — ghosts win
-        state.phase = 'gameover';
-        state.winner = 'ghosts';
-        io.emit('game_over', { winner: 'ghosts' });
-        return;
-      }
-    }
-  }
-
   // Check if Pacman ate all the dots
   if (state.dotsRemaining <= 0) {
     state.phase = 'gameover';
@@ -110,9 +116,8 @@ setInterval(() => {
     return;
   }
 
-  // Send the latest game state to every connected browser
   io.emit('game_state', state);
-}, 150); // 150ms per tick ≈ about 6-7 moves per second (good pace for beginners)
+}, 150);
 
 server.listen(PORT, () => {
   console.log(`Ghost Pacman server running at http://localhost:${PORT}`);
