@@ -99,8 +99,12 @@ Player presses arrow key
 | Player input (arrow keys + WASD) | ✅ Done | `public/js/input.js` |
 | Win/lose detection + game over | ✅ Done | Ghost catches Pacman OR dots = 0 |
 | Auto-CLAUDE.md update hook | ✅ Done | `.claude/settings.json` Stop hook |
-| Commit & push to GitHub | ✅ Done | Branch: claude/multiplayer-pacman-game-Mqlta |
-| **Railway deployment config** | ✅ Done | `railway.json` + PORT env var |
+| Commit & push to GitHub | ✅ Done | github.com/SRB1021/rsfirstproject |
+| Railway deployment config | ✅ Done | `railway.json` + PORT env var — auto-deploys on push |
+| Power pellet scared mode | ✅ Done | Ghosts turn blue, Pacman hunts them, ghost respawns on catch |
+| Ghost-Pacman tunneling fix | ✅ Done | Collisions checked after ghost move AND after Pacman move |
+| Pacman hunts scared ghosts | ✅ Done | AI attracted to blue ghosts instead of avoiding them |
+| Smooth movement | ✅ Done | 60fps client lerp between 150ms server ticks (`main.js`, `renderer.js`) |
 
 ---
 
