@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"systemMessage\": \"REMINDER: If you just finished a feature, update CLAUDE.md with the new feature status and any new files created.\"}'",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

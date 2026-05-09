@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ghost Pacman - Multiplayer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Lobby screen shown before joining -->
+  <div id="lobby">
+    <h1>Ghost Pacman</h1>
+    <p>You and your friends are the ghosts!<br>Chase Pacman before he eats all the dots!</p>
+    <input type="text" id="nameInput" placeholder="Your name" maxlength="16">
+    <br>
+    <button id="joinBtn">Join Game</button>
+    <p id="lobbyMsg"></p>
+  </div>
+
+  <!-- Game screen shown while playing -->
+  <div id="gameScreen" style="display:none;">
+    <div id="statusBar">
+      <span id="playerLabel">You are: </span>
+      <span id="dotsLabel">Dots left: </span>
+      <span id="playersLabel">Players online: 0/4</span>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+    <div id="overlay" style="display:none;">
+      <h2 id="overlayTitle"></h2>
+      <button id="restartBtn">Play Again</button>
+    </div>
+  </div>
+
+  <!-- Socket.io is served automatically by the server -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="js/constants.js"></script>
+  <script src="js/renderer.js"></script>
+  <script src="js/input.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

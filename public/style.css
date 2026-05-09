@@ -1,0 +1,119 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: #000;
+  color: #fff;
+  font-family: 'Courier New', monospace;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  flex-direction: column;
+}
+
+/* Lobby */
+#lobby {
+  text-align: center;
+}
+
+#lobby h1 {
+  font-size: 2.5rem;
+  color: #FFD700;
+  text-shadow: 0 0 20px #FFD700;
+  margin-bottom: 1rem;
+}
+
+#lobby p {
+  color: #aaa;
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+}
+
+#nameInput {
+  background: #111;
+  border: 2px solid #FFD700;
+  color: #fff;
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+  border-radius: 4px;
+  outline: none;
+  margin-bottom: 0.75rem;
+  width: 200px;
+  text-align: center;
+}
+
+#joinBtn, #restartBtn {
+  background: #FFD700;
+  color: #000;
+  border: none;
+  padding: 0.6rem 2rem;
+  font-size: 1.1rem;
+  font-weight: bold;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'Courier New', monospace;
+}
+
+#joinBtn:hover, #restartBtn:hover {
+  background: #fff;
+}
+
+#lobbyMsg {
+  margin-top: 1rem;
+  color: #f88;
+}
+
+/* Game screen */
+#gameScreen {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+#statusBar {
+  display: flex;
+  gap: 2rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  color: #aaa;
+  background: #111;
+  width: 100%;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+#playerLabel {
+  color: #FFD700;
+  font-weight: bold;
+}
+
+#gameCanvas {
+  display: block;
+  border: 2px solid #333;
+}
+
+/* Game over overlay on top of the canvas */
+#overlay {
+  position: absolute;
+  top: 40px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+#overlayTitle {
+  font-size: 2rem;
+  color: #FFD700;
+  text-shadow: 0 0 15px #FFD700;
+}
