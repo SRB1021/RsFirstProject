@@ -1,9 +1,7 @@
 const { freshDots, countDots } = require('./maze');
 
-// The 4 ghost characters, in classic order
 const GHOST_NAMES = ['Blinky', 'Pinky', 'Inky', 'Clyde'];
 
-// Starting positions for each ghost (col, row) inside the ghost house
 const GHOST_STARTS = {
   Blinky: { col: 13, row: 14 },
   Pinky:  { col: 13, row: 14 },
@@ -11,7 +9,6 @@ const GHOST_STARTS = {
   Clyde:  { col: 15, row: 14 },
 };
 
-// Pacman starts near the bottom center
 const PACMAN_START = { col: 13, row: 23 };
 
 function createGameState() {
@@ -37,15 +34,14 @@ function createGameState() {
     ghosts,
     dots,
     dotsRemaining: countDots(dots),
-    phase: 'waiting',   // 'waiting' | 'playing' | 'gameover'
-    winner: null,       // 'ghosts' | 'pacman'
+    phase: 'waiting',
+    winner: null,
     playerCount: 0,
   };
 }
 
 let state = createGameState();
 
-// Assign the next available ghost to a newly connected player
 function addPlayer(socketId) {
   for (const name of GHOST_NAMES) {
     if (state.ghosts[name].isCPU) {
@@ -56,10 +52,9 @@ function addPlayer(socketId) {
       return name;
     }
   }
-  return null; // game is full
+  return null;
 }
 
-// Free a ghost back to CPU when a player disconnects
 function removePlayer(socketId) {
   for (const name of GHOST_NAMES) {
     if (state.ghosts[name].playerId === socketId) {
@@ -69,13 +64,11 @@ function removePlayer(socketId) {
       break;
     }
   }
-  // If everyone left, go back to waiting
   if (state.playerCount === 0) {
     state.phase = 'waiting';
   }
 }
 
-// Store a player's intended direction so the game loop can apply it
 function applyInput(socketId, direction) {
   for (const name of GHOST_NAMES) {
     if (state.ghosts[name].playerId === socketId) {
@@ -85,7 +78,6 @@ function applyInput(socketId, direction) {
   }
 }
 
-// Reset everything for a new round
 function resetGame() {
   const dots = freshDots();
   state.pacman = { col: PACMAN_START.col, row: PACMAN_START.row, direction: 'left', nextDirection: 'left' };

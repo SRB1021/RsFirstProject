@@ -29,6 +29,7 @@ Share the link with friends on the same network to play together!
 RsFirstProject/
 ├── server.js                  ← Node.js server: game loop + Socket.io connections
 ├── package.json               ← Dependencies: express, socket.io
+├── railway.json               ← Railway deployment config
 │
 ├── game/                      ← Server-side logic (runs on YOUR computer, not browser)
 │   ├── maze.js                ← 28×31 tile grid (0=floor, 1=wall, 2=dot, 3=power pellet)
@@ -99,8 +100,8 @@ Player presses arrow key
 | Player input (arrow keys + WASD) | ✅ Done | `public/js/input.js` |
 | Win/lose detection + game over | ✅ Done | Ghost catches Pacman OR dots = 0 |
 | Auto-CLAUDE.md update hook | ✅ Done | `.claude/settings.json` Stop hook |
-| Commit & push to GitHub | ✅ Done | Branch: claude/multiplayer-pacman-game-Mqlta |
-| **Railway deployment config** | ✅ Done | `railway.json` + PORT env var |
+| Railway deployment config | ✅ Done | `railway.json` + PORT env var |
+| **Pushed to GitHub** | ✅ Done | github.com/SRB1021/rsfirstproject |
 
 ---
 

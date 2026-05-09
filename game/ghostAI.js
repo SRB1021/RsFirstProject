@@ -13,7 +13,6 @@ function manhattanDistance(c1, r1, c2, r2) {
   return Math.abs(c1 - c2) + Math.abs(r1 - r2);
 }
 
-// Pick the direction that brings the ghost closest to its target tile
 function moveTowardTarget(ghost, targetCol, targetRow) {
   const allDirs = Object.keys(DIRS);
 
@@ -47,41 +46,34 @@ function moveTowardTarget(ghost, targetCol, targetRow) {
   }
 }
 
-// Move all CPU-controlled ghosts using their individual targeting rules
 function moveCPUGhosts(state) {
   const pac = state.pacman;
   const ghosts = state.ghosts;
 
-  // Blinky (red): always targets Pacman directly
   if (ghosts.Blinky.isCPU) {
     moveTowardTarget(ghosts.Blinky, pac.col, pac.row);
   }
 
-  // Pinky (pink): targets 4 tiles ahead of Pacman's direction
   if (ghosts.Pinky.isCPU) {
     const DIRS_VEC = { left: [-4, 0], right: [4, 0], up: [0, -4], down: [0, 4] };
     const [dc, dr] = DIRS_VEC[pac.direction] || [0, 0];
     moveTowardTarget(ghosts.Pinky, pac.col + dc, pac.row + dr);
   }
 
-  // Inky (cyan): targets Pacman directly (simpler version of classic Inky)
   if (ghosts.Inky.isCPU) {
     moveTowardTarget(ghosts.Inky, pac.col, pac.row);
   }
 
-  // Clyde (orange): chases Pacman when far, retreats to corner when close
   if (ghosts.Clyde.isCPU) {
     const dist = manhattanDistance(ghosts.Clyde.col, ghosts.Clyde.row, pac.col, pac.row);
     if (dist > 8) {
       moveTowardTarget(ghosts.Clyde, pac.col, pac.row);
     } else {
-      // Retreat to bottom-left corner
       moveTowardTarget(ghosts.Clyde, 1, 29);
     }
   }
 }
 
-// Move a single human-controlled ghost in the direction they pressed
 function moveHumanGhost(ghost) {
   if (!ghost.nextDirection) return;
 
@@ -96,7 +88,6 @@ function moveHumanGhost(ghost) {
     ghost.col = newCol;
     ghost.row = newRow;
   }
-  // If blocked, keep trying same direction next tick (feels responsive)
 }
 
 module.exports = { moveCPUGhosts, moveHumanGhost };

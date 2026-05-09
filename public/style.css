@@ -15,7 +15,6 @@ body {
   flex-direction: column;
 }
 
-/* Lobby */
 #lobby {
   text-align: center;
 }
@@ -67,7 +66,6 @@ body {
   color: #f88;
 }
 
-/* Game screen */
 #gameScreen {
   position: relative;
   display: flex;
@@ -97,7 +95,6 @@ body {
   border: 2px solid #333;
 }
 
-/* Game over overlay on top of the canvas */
 #overlay {
   position: absolute;
   top: 40px;

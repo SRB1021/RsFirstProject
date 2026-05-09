@@ -95,7 +95,7 @@ setInterval(() => {
 
   // Send the latest game state to every connected browser
   io.emit('game_state', state);
-}, 150); // 150ms per tick ≈ about 6-7 moves per second (good pace for beginners)
+}, 150);
 
 server.listen(PORT, () => {
   console.log(`Ghost Pacman server running at http://localhost:${PORT}`);

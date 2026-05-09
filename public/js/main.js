@@ -1,6 +1,3 @@
-// main.js — the entry point for the browser.
-// Connects to the server, handles UI, and ties everything together.
-
 const socket = io();
 let myGhostName = null;
 let lastState = null;
@@ -18,8 +15,6 @@ const overlay      = document.getElementById('overlay');
 const overlayTitle = document.getElementById('overlayTitle');
 const restartBtn   = document.getElementById('restartBtn');
 
-// --- Button handlers ---
-
 joinBtn.addEventListener('click', () => {
   const name = nameInput.value.trim() || 'Ghost Player';
   socket.emit('join_game', { name });
@@ -32,21 +27,16 @@ restartBtn.addEventListener('click', () => {
   overlay.style.display = 'none';
 });
 
-// Allow pressing Enter to join
 nameInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') joinBtn.click();
 });
 
-// --- Socket events from server ---
-
 socket.on('game_joined', (data) => {
   myGhostName = data.ghostName;
   playerLabel.textContent = `You are: ${myGhostName}`;
-
   lobby.style.display = 'none';
   gameScreen.style.display = 'flex';
-
-  setupInput(socket); // start listening for arrow keys
+  setupInput(socket);
 });
 
 socket.on('game_full', () => {
@@ -57,14 +47,12 @@ socket.on('game_full', () => {
 socket.on('game_state', (state) => {
   lastState = state;
 
-  // Update status bar
   const humanCount = Object.values(state.ghosts).filter(g => !g.isCPU).length;
   dotsLabel.textContent    = `Dots left: ${state.dotsRemaining}`;
   playersLabel.textContent = `Players online: ${humanCount}/4`;
 
   draw(canvas, state, myGhostName);
 
-  // Draw a "waiting" message if no players have joined yet
   if (state.phase === 'waiting') {
     const ctx = canvas.getContext('2d');
     ctx.fillStyle = 'rgba(0,0,0,0.6)';
@@ -83,7 +71,6 @@ socket.on('game_over', (data) => {
     overlayTitle.textContent = 'Pacman Wins! He ate all the dots!';
   }
   overlay.style.display = 'flex';
-
   if (lastState) draw(canvas, lastState, myGhostName);
 });
 
