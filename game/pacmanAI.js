@@ -49,11 +49,15 @@ function movePacman(state, maze) {
     if (cell === DOT) score += 10;
     if (cell === POWER) score += 15;
 
-    // Penalty for moving toward a ghost (danger avoidance)
+    // Avoid normal ghosts, but CHASE scared ones
     for (const ghostName of Object.keys(state.ghosts)) {
       const g = state.ghosts[ghostName];
       const dist = manhattanDistance(newCol, newRow, g.col, g.row);
-      if (dist < 4) score -= (5 - dist) * 8; // bigger penalty when closer
+      if (g.scared) {
+        if (dist < 6) score += (7 - dist) * 10; // strong pull toward scared ghosts
+      } else {
+        if (dist < 4) score -= (5 - dist) * 8;  // repel from normal ghosts
+      }
     }
 
     // Small random tie-breaker so Pacman doesn't get stuck in loops
