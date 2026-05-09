@@ -40,10 +40,15 @@ function movePacman(state, maze) {
     if (cell === DOT) score += 10;
     if (cell === POWER) score += 15;
 
+    // Avoid normal ghosts, but CHASE scared ones
     for (const ghostName of Object.keys(state.ghosts)) {
       const g = state.ghosts[ghostName];
       const dist = manhattanDistance(newCol, newRow, g.col, g.row);
-      if (dist < 4) score -= (5 - dist) * 8;
+      if (g.scared) {
+        if (dist < 6) score += (7 - dist) * 10; // strong pull toward scared ghosts
+      } else {
+        if (dist < 4) score -= (5 - dist) * 8;  // repel from normal ghosts
+      }
     }
 
     score += Math.random() * 2;
@@ -65,7 +70,6 @@ function movePacman(state, maze) {
       state.dots[pac.row][pac.col] = EMPTY;
       state.dotsRemaining--;
 
-      // Power pellet — make all ghosts scared for ~7 seconds (50 ticks at 150ms each)
       if (atePower) {
         for (const ghost of Object.values(state.ghosts)) {
           ghost.scared = true;
