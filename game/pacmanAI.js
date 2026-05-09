@@ -61,8 +61,17 @@ function movePacman(state, maze) {
     pac.row += dr;
 
     if (state.dots[pac.row] && (state.dots[pac.row][pac.col] === DOT || state.dots[pac.row][pac.col] === POWER)) {
+      const atePower = state.dots[pac.row][pac.col] === POWER;
       state.dots[pac.row][pac.col] = EMPTY;
       state.dotsRemaining--;
+
+      // Power pellet — make all ghosts scared for ~7 seconds (50 ticks at 150ms each)
+      if (atePower) {
+        for (const ghost of Object.values(state.ghosts)) {
+          ghost.scared = true;
+          ghost.scaredTimer = 50;
+        }
+      }
     }
   }
 }

@@ -46,25 +46,66 @@ function moveTowardTarget(ghost, targetCol, targetRow) {
   }
 }
 
+function moveAwayFromTarget(ghost, targetCol, targetRow) {
+  const allDirs = Object.keys(DIRS);
+
+  const available = allDirs.filter(dir => {
+    const { dc, dr } = DIRS[dir];
+    return isPassable(ghost.col + dc, ghost.row + dr);
+  });
+
+  if (available.length === 0) return;
+
+  const nonReverse = available.filter(dir => dir !== OPPOSITE[ghost.direction]);
+  const choices = nonReverse.length > 0 ? nonReverse : available;
+
+  let best = null;
+  let bestDist = -Infinity;
+
+  for (const dir of choices) {
+    const { dc, dr } = DIRS[dir];
+    const dist = manhattanDistance(ghost.col + dc, ghost.row + dr, targetCol, targetRow);
+    if (dist > bestDist) {
+      bestDist = dist;
+      best = dir;
+    }
+  }
+
+  if (best) {
+    const { dc, dr } = DIRS[best];
+    ghost.direction = best;
+    ghost.col += dc;
+    ghost.row += dr;
+  }
+}
+
 function moveCPUGhosts(state) {
   const pac = state.pacman;
   const ghosts = state.ghosts;
 
-  if (ghosts.Blinky.isCPU) {
+  for (const ghost of Object.values(ghosts)) {
+    if (!ghost.isCPU) continue;
+    if (ghost.scared) {
+      moveAwayFromTarget(ghost, pac.col, pac.row);
+      continue;
+    }
+  }
+
+  if (ghosts.Blinky.isCPU && !ghosts.Blinky.scared) {
     moveTowardTarget(ghosts.Blinky, pac.col, pac.row);
   }
 
-  if (ghosts.Pinky.isCPU) {
+  if (ghosts.Pinky.isCPU && !ghosts.Pinky.scared) {
     const DIRS_VEC = { left: [-4, 0], right: [4, 0], up: [0, -4], down: [0, 4] };
     const [dc, dr] = DIRS_VEC[pac.direction] || [0, 0];
     moveTowardTarget(ghosts.Pinky, pac.col + dc, pac.row + dr);
   }
 
-  if (ghosts.Inky.isCPU) {
+  if (ghosts.Inky.isCPU && !ghosts.Inky.scared) {
     moveTowardTarget(ghosts.Inky, pac.col, pac.row);
   }
 
-  if (ghosts.Clyde.isCPU) {
+  if (ghosts.Clyde.isCPU && !ghosts.Clyde.scared) {
     const dist = manhattanDistance(ghosts.Clyde.col, ghosts.Clyde.row, pac.col, pac.row);
     if (dist > 8) {
       moveTowardTarget(ghosts.Clyde, pac.col, pac.row);

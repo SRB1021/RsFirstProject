@@ -3,7 +3,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
 
-const { getState, addPlayer, removePlayer, applyInput, resetGame } = require('./game/gameState');
+const { getState, addPlayer, removePlayer, applyInput, resetGame, respawnGhost } = require('./game/gameState');
 const { movePacman } = require('./game/pacmanAI');
 const { moveCPUGhosts, moveHumanGhost } = require('./game/ghostAI');
 
@@ -13,14 +13,11 @@ const io = new Server(server);
 
 const PORT = process.env.PORT || 3000;
 
-// Serve everything in the public/ folder to browsers
 app.use(express.static(path.join(__dirname, 'public')));
 
-// When a browser connects via Socket.io
 io.on('connection', (socket) => {
   console.log(`Player connected: ${socket.id}`);
 
-  // Player wants to join the game
   socket.on('join_game', (data) => {
     const state = getState();
     if (state.phase === 'gameover') {
@@ -37,30 +34,25 @@ io.on('connection', (socket) => {
     socket.emit('game_joined', { ghostName, playerId: socket.id });
   });
 
-  // Player pressed an arrow key
   socket.on('player_input', (data) => {
     applyInput(socket.id, data.direction);
   });
 
-  // Player wants to restart after game over
   socket.on('request_restart', () => {
     resetGame();
     io.emit('game_restarted');
   });
 
-  // Player disconnected (closed tab, lost internet, etc.)
   socket.on('disconnect', () => {
     console.log(`Player disconnected: ${socket.id}`);
     removePlayer(socket.id);
   });
 });
 
-// The main game loop — runs 10 times per second
 setInterval(() => {
   const state = getState();
   if (state.phase !== 'playing') return;
 
-  // Move all human-controlled ghosts based on their last input
   for (const name of Object.keys(state.ghosts)) {
     const ghost = state.ghosts[name];
     if (!ghost.isCPU) {
@@ -68,24 +60,35 @@ setInterval(() => {
     }
   }
 
-  // Move CPU-controlled ghosts using AI
   moveCPUGhosts(state);
-
-  // Move Pacman using AI
   movePacman(state, state.dots);
 
-  // Check if any ghost caught Pacman
-  for (const name of Object.keys(state.ghosts)) {
-    const g = state.ghosts[name];
-    if (g.col === state.pacman.col && g.row === state.pacman.row) {
-      state.phase = 'gameover';
-      state.winner = 'ghosts';
-      io.emit('game_over', { winner: 'ghosts' });
-      return;
+  // Tick down scared timers
+  for (const ghost of Object.values(state.ghosts)) {
+    if (ghost.scared) {
+      ghost.scaredTimer--;
+      if (ghost.scaredTimer <= 0) {
+        ghost.scared = false;
+        ghost.scaredTimer = 0;
+      }
     }
   }
 
-  // Check if Pacman ate all the dots
+  // Check ghost-Pacman collisions
+  for (const name of Object.keys(state.ghosts)) {
+    const g = state.ghosts[name];
+    if (g.col === state.pacman.col && g.row === state.pacman.row) {
+      if (g.scared) {
+        respawnGhost(name);
+      } else {
+        state.phase = 'gameover';
+        state.winner = 'ghosts';
+        io.emit('game_over', { winner: 'ghosts' });
+        return;
+      }
+    }
+  }
+
   if (state.dotsRemaining <= 0) {
     state.phase = 'gameover';
     state.winner = 'pacman';
@@ -93,7 +96,6 @@ setInterval(() => {
     return;
   }
 
-  // Send the latest game state to every connected browser
   io.emit('game_state', state);
 }, 150);
 
