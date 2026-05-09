@@ -89,7 +89,13 @@ function drawGhosts(ctx, ghosts, myGhostName) {
     const x = ghost.col * TILE_SIZE + TILE_SIZE / 2;
     const y = ghost.row * TILE_SIZE + TILE_SIZE / 2;
     const radius = TILE_SIZE / 2 - 2;
-    const color = GHOST_COLORS[name] || '#fff';
+    // Scared ghosts turn blue; flash white when the timer is almost up
+    let color;
+    if (ghost.scared) {
+      color = (ghost.scaredTimer < 15 && Math.floor(Date.now() / 300) % 2 === 0) ? '#ffffff' : '#2121DE';
+    } else {
+      color = GHOST_COLORS[name] || '#fff';
+    }
 
     // Ghost body: semicircle on top + wavy bottom
     ctx.fillStyle = color;

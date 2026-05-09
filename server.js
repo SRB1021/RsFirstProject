@@ -3,7 +3,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
 
-const { getState, addPlayer, removePlayer, applyInput, resetGame } = require('./game/gameState');
+const { getState, addPlayer, removePlayer, applyInput, resetGame, respawnGhost } = require('./game/gameState');
 const { movePacman } = require('./game/pacmanAI');
 const { moveCPUGhosts, moveHumanGhost } = require('./game/ghostAI');
 
@@ -74,14 +74,31 @@ setInterval(() => {
   // Move Pacman using AI
   movePacman(state, state.dots);
 
-  // Check if any ghost caught Pacman
+  // Tick down scared timers
+  for (const ghost of Object.values(state.ghosts)) {
+    if (ghost.scared) {
+      ghost.scaredTimer--;
+      if (ghost.scaredTimer <= 0) {
+        ghost.scared = false;
+        ghost.scaredTimer = 0;
+      }
+    }
+  }
+
+  // Check ghost-Pacman collisions
   for (const name of Object.keys(state.ghosts)) {
     const g = state.ghosts[name];
     if (g.col === state.pacman.col && g.row === state.pacman.row) {
-      state.phase = 'gameover';
-      state.winner = 'ghosts';
-      io.emit('game_over', { winner: 'ghosts' });
-      return;
+      if (g.scared) {
+        // Pacman eats the scared ghost — send it back to the ghost house
+        respawnGhost(name);
+      } else {
+        // Normal ghost touches Pacman — ghosts win
+        state.phase = 'gameover';
+        state.winner = 'ghosts';
+        io.emit('game_over', { winner: 'ghosts' });
+        return;
+      }
     }
   }
 

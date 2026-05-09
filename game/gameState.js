@@ -24,6 +24,8 @@ function createGameState() {
       direction: 'left',
       playerId: null,
       isCPU: true,
+      scared: false,
+      scaredTimer: 0,
     };
   }
 
@@ -98,6 +100,8 @@ function resetGame() {
     state.ghosts[name].row = GHOST_STARTS[name].row;
     state.ghosts[name].direction = 'left';
     state.ghosts[name].nextDirection = 'left';
+    state.ghosts[name].scared = false;
+    state.ghosts[name].scaredTimer = 0;
   }
 
   state.phase = state.playerCount > 0 ? 'playing' : 'waiting';
@@ -107,4 +111,13 @@ function getState() {
   return state;
 }
 
-module.exports = { getState, addPlayer, removePlayer, applyInput, resetGame, GHOST_NAMES };
+// Send a ghost back to the ghost house after Pacman eats it
+function respawnGhost(name) {
+  state.ghosts[name].col = GHOST_STARTS[name].col;
+  state.ghosts[name].row = GHOST_STARTS[name].row;
+  state.ghosts[name].direction = 'left';
+  state.ghosts[name].scared = false;
+  state.ghosts[name].scaredTimer = 0;
+}
+
+module.exports = { getState, addPlayer, removePlayer, applyInput, resetGame, respawnGhost, GHOST_NAMES };
