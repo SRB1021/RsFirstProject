@@ -11,7 +11,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 // Serve everything in the public/ folder to browsers
 app.use(express.static(path.join(__dirname, 'public')));

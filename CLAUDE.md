@@ -99,7 +99,8 @@ Player presses arrow key
 | Player input (arrow keys + WASD) | ✅ Done | `public/js/input.js` |
 | Win/lose detection + game over | ✅ Done | Ghost catches Pacman OR dots = 0 |
 | Auto-CLAUDE.md update hook | ✅ Done | `.claude/settings.json` Stop hook |
-| **Commit & push to GitHub** | ⏳ Pending | Still need to do this |
+| Commit & push to GitHub | ✅ Done | Branch: claude/multiplayer-pacman-game-Mqlta |
+| **Railway deployment config** | ✅ Done | `railway.json` + PORT env var |
 
 ---
 
