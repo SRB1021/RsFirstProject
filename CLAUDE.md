@@ -11,14 +11,17 @@ node server.js     # starts the game server
 ```
 
 Then open `http://localhost:3000` in your browser.
-Share the link with friends on the same network to play together!
+
+## Live on Railway
+Auto-deploys from github.com/SRB1021/rsfirstproject on every push to `main`.
 
 ## What This Game Does
 
 - Up to **4 players** join via browser — each controls one ghost
 - Empty ghost slots become **CPU-controlled** automatically
 - **AI Pacman** wanders the maze eating dots, trying to avoid ghosts
-- **Ghosts win** if they catch Pacman
+- **Power pellets** (big dots) make all ghosts turn blue — Pacman hunts them!
+- **Ghosts win** if they catch Pacman while he's not powered up
 - **Pacman wins** if he eats all the dots
 
 ---
@@ -31,46 +34,35 @@ RsFirstProject/
 ├── package.json               ← Dependencies: express, socket.io
 ├── railway.json               ← Railway deployment config
 │
-├── game/                      ← Server-side logic (runs on YOUR computer, not browser)
+├── game/                      ← Server-side logic
 │   ├── maze.js                ← 28×31 tile grid (0=floor, 1=wall, 2=dot, 3=power pellet)
 │   ├── gameState.js           ← All positions, scores, who's playing which ghost
-│   ├── pacmanAI.js            ← AI that moves Pacman (prefers dots, avoids ghosts)
-│   └── ghostAI.js             ← AI that moves CPU ghosts (each has different target logic)
+│   ├── pacmanAI.js            ← AI: eats dots, avoids normal ghosts, HUNTS scared ones
+│   └── ghostAI.js             ← CPU ghosts chase Pacman; scared ghosts run away
 │
-└── public/                    ← Browser files (what players download)
-    ├── index.html             ← The webpage with the canvas + join button
-    ├── style.css              ← Black background, yellow title, ghost game look
+└── public/                    ← Browser files
+    ├── index.html
+    ├── style.css
     └── js/
-        ├── constants.js       ← Shared numbers: TILE_SIZE=20, ghost colors, tile types
-        ├── input.js           ← Arrow keys / WASD → socket.emit('player_input')
-        ├── renderer.js        ← Draws maze walls, dots, Pacman (mouth wedge), ghosts (wavy skirt)
-        └── main.js            ← Connects to server, handles lobby/game screens, calls draw()
+        ├── constants.js       ← TILE_SIZE=20, ghost colors, tile types
+        ├── input.js           ← Arrow keys / WASD → socket.emit
+        ├── renderer.js        ← Draws everything; lerps positions for smooth motion
+        └── main.js            ← Socket connection, 60fps render loop, UI
 ```
 
 ---
 
 ## How Multiplayer Works
 
-The server runs the game and sends updates to all browsers 6-7 times per second (every 150ms).
+Server ticks every 150ms. Browser renders at 60fps using interpolation.
 
 ```
 Player presses arrow key
   → browser sends: socket.emit('player_input', { direction: 'left' })
-  → server stores the input
-  → next game tick: server moves ghost, moves Pacman AI, moves CPU ghosts
+  → server moves ghost on next tick
   → server sends full game_state to every browser
-  → each browser redraws the canvas
+  → browser lerps characters smoothly to new positions at 60fps
 ```
-
-### Socket Events
-| Event | Who sends it | What it means |
-|---|---|---|
-| `join_game` | Browser → Server | Player clicks Join |
-| `player_input` | Browser → Server | Arrow key pressed |
-| `game_joined` | Server → Browser | "You are Blinky!" |
-| `game_state` | Server → Browser | Full positions every 150ms |
-| `game_over` | Server → Browser | Someone won |
-| `request_restart` | Browser → Server | Play Again clicked |
 
 ---
 
@@ -80,7 +72,7 @@ Player presses arrow key
 |---|---|---|
 | Blinky | Red | Chases Pacman directly |
 | Pinky | Pink | Aims 4 tiles AHEAD of Pacman |
-| Inky | Cyan | Chases Pacman directly (simple version) |
+| Inky | Cyan | Chases Pacman directly |
 | Clyde | Orange | Chases when far, retreats to corner when close |
 
 ---
@@ -89,38 +81,39 @@ Player presses arrow key
 
 | Feature | Status | Notes |
 |---|---|---|
-| Project setup (npm, Express, Socket.io) | ✅ Done | `npm install` to set up |
+| Project setup | ✅ Done | |
 | Maze tile grid (28×31) | ✅ Done | `game/maze.js` |
 | Game state management | ✅ Done | `game/gameState.js` |
-| Pacman AI | ✅ Done | Prefers dots, avoids ghosts |
+| Pacman AI | ✅ Done | Avoids normal ghosts, hunts scared ones |
 | Ghost AI (CPU + human) | ✅ Done | Each ghost has different target logic |
 | Server game loop | ✅ Done | Runs every 150ms |
 | HTML canvas page | ✅ Done | Lobby + game screen |
-| Renderer (maze, Pacman, ghosts) | ✅ Done | Ghosts have wavy skirt + eyes |
-| Player input (arrow keys + WASD) | ✅ Done | `public/js/input.js` |
-| Win/lose detection + game over | ✅ Done | Ghost catches Pacman OR dots = 0 |
+| Renderer | ✅ Done | Ghosts have wavy skirt + eyes |
+| Player input (arrow keys + WASD) | ✅ Done | |
+| Win/lose detection | ✅ Done | Ghost catches Pacman OR dots = 0 |
 | Auto-CLAUDE.md update hook | ✅ Done | `.claude/settings.json` Stop hook |
-| Railway deployment config | ✅ Done | `railway.json` + PORT env var |
-| **Pushed to GitHub** | ✅ Done | github.com/SRB1021/rsfirstproject |
+| Railway deployment | ✅ Done | Auto-deploys on push to main |
+| Power pellet scared mode | ✅ Done | Ghosts turn blue; Pacman hunts them; respawn on catch |
+| Tunneling bug fix | ✅ Done | Collision checked after ghosts move AND after Pacman moves |
+| Pacman hunts scared ghosts | ✅ Done | AI attracted to blue ghosts |
+| Smooth movement | ✅ Done | 60fps lerp in `main.js` + `renderer.js` |
 
 ---
 
-## What's Next (Ideas for Future Features)
+## What's Next (Ideas)
 
-- [ ] Sound effects when Pacman is caught
-- [ ] Animated mouth on Pacman (open/close as it moves)
-- [ ] Score display (points per dot eaten)
+- [ ] Score display (points per dot/ghost eaten)
+- [ ] Animated Pacman mouth (open/close)
+- [ ] Sound effects
 - [ ] High score leaderboard
-- [ ] Power pellets that make ghosts run away (scared mode)
-- [ ] Better ghost shapes (more detailed sprites)
 - [ ] Mobile touch controls
-- [ ] Lobby screen showing who's connected before game starts
+- [ ] Lobby screen showing connected players before game starts
 
 ---
 
 ## Key Design Decisions
 
-- **Server is the judge**: The server decides all positions. Browsers just draw what they're told. This prevents cheating and keeps everyone in sync.
-- **Tile coordinates**: Positions are stored as grid column/row (not pixels). The renderer converts to pixels when drawing. Makes collision detection simple: just check if two things are at the same tile.
-- **150ms game tick**: Fast enough to feel smooth, slow enough to be easy to understand.
-- **No database**: Game state lives in server memory and resets when server restarts. Perfect for a first project!
+- **Server is the judge**: All positions decided server-side. Browsers just draw what they're told.
+- **Tile coordinates**: Grid col/row internally; pixels only at draw time. Collision = same tile.
+- **150ms server tick + 60fps client lerp**: Game logic is simple to reason about; visuals are smooth.
+- **No database**: State resets on server restart. Perfect for a first project.

@@ -1,6 +1,9 @@
 const socket = io();
 let myGhostName = null;
-let lastState = null;
+let currentState  = null;
+let previousState = null;
+let lastUpdateTime = 0;
+const TICK_MS = 150; // must match server interval
 
 const lobby      = document.getElementById('lobby');
 const gameScreen = document.getElementById('gameScreen');
@@ -14,6 +17,8 @@ const playersLabel = document.getElementById('playersLabel');
 const overlay      = document.getElementById('overlay');
 const overlayTitle = document.getElementById('overlayTitle');
 const restartBtn   = document.getElementById('restartBtn');
+
+// --- Button handlers ---
 
 joinBtn.addEventListener('click', () => {
   const name = nameInput.value.trim() || 'Ghost Player';
@@ -31,12 +36,20 @@ nameInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') joinBtn.click();
 });
 
+// --- Socket events from server ---
+
 socket.on('game_joined', (data) => {
   myGhostName = data.ghostName;
   playerLabel.textContent = `You are: ${myGhostName}`;
   lobby.style.display = 'none';
   gameScreen.style.display = 'flex';
+
+  // Set canvas size once so we never resize mid-frame (resizing clears the canvas)
+  canvas.width  = MAZE_COLS * TILE_SIZE;
+  canvas.height = MAZE_ROWS * TILE_SIZE;
+
   setupInput(socket);
+  requestAnimationFrame(renderLoop);
 });
 
 socket.on('game_full', () => {
@@ -45,18 +58,18 @@ socket.on('game_full', () => {
 });
 
 socket.on('game_state', (state) => {
-  lastState = state;
+  previousState = currentState;
+  currentState  = state;
+  lastUpdateTime = performance.now();
 
   const humanCount = Object.values(state.ghosts).filter(g => !g.isCPU).length;
   dotsLabel.textContent    = `Dots left: ${state.dotsRemaining}`;
   playersLabel.textContent = `Players online: ${humanCount}/4`;
 
-  draw(canvas, state, myGhostName);
-
   if (state.phase === 'waiting') {
     const ctx = canvas.getContext('2d');
-    ctx.fillStyle = 'rgba(0,0,0,0.6)';
-    ctx.fillRect(0, canvas.height / 2 - 30, canvas.width, 50);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = '#FFD700';
     ctx.font = '16px Courier New';
     ctx.textAlign = 'center';
@@ -65,15 +78,23 @@ socket.on('game_state', (state) => {
 });
 
 socket.on('game_over', (data) => {
-  if (data.winner === 'ghosts') {
-    overlayTitle.textContent = 'Ghosts Win! You caught Pacman!';
-  } else {
-    overlayTitle.textContent = 'Pacman Wins! He ate all the dots!';
-  }
+  overlayTitle.textContent = data.winner === 'ghosts'
+    ? 'Ghosts Win! You caught Pacman!'
+    : 'Pacman Wins! He ate all the dots!';
   overlay.style.display = 'flex';
-  if (lastState) draw(canvas, lastState, myGhostName);
 });
 
 socket.on('game_restarted', () => {
+  previousState = null;
   overlay.style.display = 'none';
 });
+
+// --- 60fps render loop ---
+function renderLoop() {
+  if (currentState && currentState.phase === 'playing') {
+    const elapsed = performance.now() - lastUpdateTime;
+    const alpha = Math.min(elapsed / TICK_MS, 1);
+    draw(canvas, currentState, previousState, myGhostName, alpha);
+  }
+  requestAnimationFrame(renderLoop);
+}

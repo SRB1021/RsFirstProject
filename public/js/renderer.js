@@ -1,16 +1,33 @@
-function draw(canvas, state, myGhostName) {
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+
+// Get interpolated pixel position. Snaps instantly if the entity teleported.
+function lerpPx(prevCol, prevRow, curCol, curRow, alpha) {
+  const MAX_JUMP = 3;
+  if (Math.abs(curCol - prevCol) > MAX_JUMP || Math.abs(curRow - prevRow) > MAX_JUMP) {
+    return {
+      x: curCol * TILE_SIZE + TILE_SIZE / 2,
+      y: curRow * TILE_SIZE + TILE_SIZE / 2,
+    };
+  }
+  return {
+    x: lerp(prevCol * TILE_SIZE + TILE_SIZE / 2, curCol * TILE_SIZE + TILE_SIZE / 2, alpha),
+    y: lerp(prevRow * TILE_SIZE + TILE_SIZE / 2, curRow * TILE_SIZE + TILE_SIZE / 2, alpha),
+  };
+}
+
+function draw(canvas, state, prevState, myGhostName, alpha = 1) {
   if (!state) return;
 
   const ctx = canvas.getContext('2d');
-  canvas.width  = MAZE_COLS * TILE_SIZE;
-  canvas.height = MAZE_ROWS * TILE_SIZE;
 
   ctx.fillStyle = '#000';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   drawMaze(ctx, state.dots);
-  drawPacman(ctx, state.pacman);
-  drawGhosts(ctx, state.ghosts, myGhostName);
+  drawPacman(ctx, state.pacman, prevState && prevState.pacman, alpha);
+  drawGhosts(ctx, state.ghosts, prevState && prevState.ghosts, myGhostName, alpha);
 }
 
 function drawMaze(ctx, dots) {
@@ -46,11 +63,11 @@ function drawMaze(ctx, dots) {
   }
 }
 
-function drawPacman(ctx, pacman) {
+function drawPacman(ctx, pacman, prevPacman, alpha) {
   if (!pacman) return;
 
-  const x = pacman.col * TILE_SIZE + TILE_SIZE / 2;
-  const y = pacman.row * TILE_SIZE + TILE_SIZE / 2;
+  const prev = prevPacman || pacman;
+  const { x, y } = lerpPx(prev.col, prev.row, pacman.col, pacman.row, alpha);
   const radius = TILE_SIZE / 2 - 2;
 
   const mouthAngles = {
@@ -72,18 +89,18 @@ function drawPacman(ctx, pacman) {
   ctx.shadowBlur = 0;
 }
 
-function drawGhosts(ctx, ghosts, myGhostName) {
+function drawGhosts(ctx, ghosts, prevGhosts, myGhostName, alpha) {
   if (!ghosts) return;
 
   for (const [name, ghost] of Object.entries(ghosts)) {
-    const x = ghost.col * TILE_SIZE + TILE_SIZE / 2;
-    const y = ghost.row * TILE_SIZE + TILE_SIZE / 2;
+    const prev = (prevGhosts && prevGhosts[name]) || ghost;
+    const { x, y } = lerpPx(prev.col, prev.row, ghost.col, ghost.row, alpha);
     const radius = TILE_SIZE / 2 - 2;
 
-    // Scared ghosts turn blue; flash white when the timer is almost up
     let color;
     if (ghost.scared) {
-      color = (ghost.scaredTimer < 15 && Math.floor(Date.now() / 300) % 2 === 0) ? '#ffffff' : '#2121DE';
+      color = (ghost.scaredTimer < 15 && Math.floor(Date.now() / 300) % 2 === 0)
+        ? '#ffffff' : '#2121DE';
     } else {
       color = GHOST_COLORS[name] || '#fff';
     }
