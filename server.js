@@ -49,19 +49,46 @@ io.on('connection', (socket) => {
   });
 });
 
+// Returns true if the game ended (so the loop can stop early)
+function checkCollisions(state) {
+  for (const name of Object.keys(state.ghosts)) {
+    const g = state.ghosts[name];
+    if (g.col === state.pacman.col && g.row === state.pacman.row) {
+      if (g.scared) {
+        respawnGhost(name);
+      } else {
+        state.phase = 'gameover';
+        state.winner = 'ghosts';
+        io.emit('game_over', { winner: 'ghosts' });
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+// The main game loop
 setInterval(() => {
   const state = getState();
   if (state.phase !== 'playing') return;
 
+  // Move all human-controlled ghosts
   for (const name of Object.keys(state.ghosts)) {
     const ghost = state.ghosts[name];
-    if (!ghost.isCPU) {
-      moveHumanGhost(ghost);
-    }
+    if (!ghost.isCPU) moveHumanGhost(ghost);
   }
 
+  // Move CPU-controlled ghosts
   moveCPUGhosts(state);
+
+  // Check collisions now — catches ghosts that walked into Pacman
+  if (checkCollisions(state)) return;
+
+  // Move Pacman
   movePacman(state, state.dots);
+
+  // Check collisions again — catches Pacman walking into a ghost
+  if (checkCollisions(state)) return;
 
   // Tick down scared timers
   for (const ghost of Object.values(state.ghosts)) {
@@ -74,21 +101,7 @@ setInterval(() => {
     }
   }
 
-  // Check ghost-Pacman collisions
-  for (const name of Object.keys(state.ghosts)) {
-    const g = state.ghosts[name];
-    if (g.col === state.pacman.col && g.row === state.pacman.row) {
-      if (g.scared) {
-        respawnGhost(name);
-      } else {
-        state.phase = 'gameover';
-        state.winner = 'ghosts';
-        io.emit('game_over', { winner: 'ghosts' });
-        return;
-      }
-    }
-  }
-
+  // Check if Pacman ate all the dots
   if (state.dotsRemaining <= 0) {
     state.phase = 'gameover';
     state.winner = 'pacman';
