@@ -4,7 +4,7 @@ const { Server } = require('socket.io');
 const path = require('path');
 
 const { createGameState, addPlayer, removePlayer, applyInput, resetGame, respawnGhost, setDifficulty } = require('./game/gameState');
-const { movePacman } = require('./game/pacmanAI');
+const { movePacman, stepPacman } = require('./game/pacmanAI');
 const { moveCPUGhosts, moveHumanGhost } = require('./game/ghostAI');
 
 const app = express();
@@ -153,6 +153,28 @@ io.on('connection', (socket) => {
 
 // --- Collision detection ---
 
+// Detects the case where Pac-Man and a ghost swap positions in the same tick
+// (Pac-Man moves to ghost's old tile, ghost moves to Pac-Man's old tile)
+function checkSwapCollisions(state, code, pacBefore, ghostsBefore) {
+  for (const [name, g] of Object.entries(state.ghosts)) {
+    const prev = ghostsBefore[name];
+    if (!prev) continue;
+    const pacSwapped = state.pacman.col === prev.col && state.pacman.row === prev.row;
+    const ghostSwapped = g.col === pacBefore.col && g.row === pacBefore.row;
+    if (pacSwapped && ghostSwapped) {
+      if (g.scared) {
+        respawnGhost(state, name);
+      } else {
+        state.phase = 'gameover';
+        state.winner = 'ghosts';
+        io.to(code).emit('game_over', { winner: 'ghosts' });
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 function checkCollisions(state, code) {
   for (const name of Object.keys(state.ghosts)) {
     const g = state.ghosts[name];
@@ -185,9 +207,26 @@ setInterval(() => {
 
     if (checkCollisions(state, code)) continue;
 
-    movePacman(state, state.dots);
+    // Snapshot ghost positions just before Pac-Man moves (for swap detection)
+    const ghostPosBefore = {};
+    for (const [n, g] of Object.entries(state.ghosts)) {
+      ghostPosBefore[n] = { col: g.col, row: g.row };
+    }
+
+    // First Pac-Man step
+    const pacBefore = { col: state.pacman.col, row: state.pacman.row };
+    stepPacman(state, state.dots, state.difficulty || 5);
 
     if (checkCollisions(state, code)) continue;
+    if (checkSwapCollisions(state, code, pacBefore, ghostPosBefore)) continue;
+
+    // Second step at difficulty 10
+    if ((state.difficulty || 5) >= 10) {
+      const pacBefore2 = { col: state.pacman.col, row: state.pacman.row };
+      stepPacman(state, state.dots, state.difficulty);
+      if (checkCollisions(state, code)) continue;
+      if (checkSwapCollisions(state, code, pacBefore2, ghostPosBefore)) continue;
+    }
 
     for (const ghost of Object.values(state.ghosts)) {
       if (ghost.scared) {

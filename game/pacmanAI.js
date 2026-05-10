@@ -220,8 +220,7 @@ function stepPacman(state, maze, difficulty) {
 function movePacman(state, maze) {
   const difficulty = state.difficulty || 5;
   stepPacman(state, maze, difficulty);
-  // Difficulty 10: double speed
   if (difficulty >= 10) stepPacman(state, maze, difficulty);
 }
 
-module.exports = { movePacman };
+module.exports = { movePacman, stepPacman };
