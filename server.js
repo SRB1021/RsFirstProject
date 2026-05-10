@@ -88,7 +88,7 @@ setInterval(() => {
   // Move all human-controlled ghosts
   for (const name of Object.keys(state.ghosts)) {
     const ghost = state.ghosts[name];
-    if (!ghost.isCPU) moveHumanGhost(ghost);
+    if (!ghost.isCPU) moveHumanGhost(ghost, name, state.ghosts);
   }
 
   // Move CPU-controlled ghosts
