@@ -161,7 +161,7 @@ function checkSwapCollisions(state, code, pacBefore, ghostsBefore) {
     if (!prev) continue;
     const pacSwapped = state.pacman.col === prev.col && state.pacman.row === prev.row;
     const ghostSwapped = g.col === pacBefore.col && g.row === pacBefore.row;
-    if (pacSwapped && ghostSwapped) {
+    if (pacSwapped && ghostSwapped && !g.inHouse) {
       if (g.scared) {
         respawnGhost(state, name);
       } else {
@@ -178,15 +178,15 @@ function checkSwapCollisions(state, code, pacBefore, ghostsBefore) {
 function checkCollisions(state, code) {
   for (const name of Object.keys(state.ghosts)) {
     const g = state.ghosts[name];
-    if (g.col === state.pacman.col && g.row === state.pacman.row) {
-      if (g.scared) {
-        respawnGhost(state, name);
-      } else {
-        state.phase = 'gameover';
-        state.winner = 'ghosts';
-        io.to(code).emit('game_over', { winner: 'ghosts' });
-        return true;
-      }
+    if (g.col !== state.pacman.col || g.row !== state.pacman.row) continue;
+    if (g.inHouse) continue; // ghost still leaving the house — not dangerous yet
+    if (g.scared) {
+      respawnGhost(state, name);
+    } else {
+      state.phase = 'gameover';
+      state.winner = 'ghosts';
+      io.to(code).emit('game_over', { winner: 'ghosts' });
+      return true;
     }
   }
   return false;
