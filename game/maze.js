@@ -3,6 +3,7 @@ const EMPTY = 0;
 const WALL = 1;
 const DOT = 2;
 const POWER = 3;
+const GHOST_HOME = 4; // ghost house interior — passable for ghosts, not for Pacman
 
 // Classic 28-column x 31-row Pacman maze
 // 1 = wall, 2 = dot, 3 = power pellet, 0 = empty (no dot, like the ghost house)
@@ -19,10 +20,10 @@ const MAZE_TEMPLATE = [
   [1,1,1,1,1,1,2,1,1,1,1,1,0,1,1,0,1,1,1,1,1,2,1,1,1,1,1,1],
   [0,0,0,0,0,1,2,1,1,1,1,1,0,1,1,0,1,1,1,1,1,2,1,0,0,0,0,0],
   [0,0,0,0,0,1,2,1,1,0,0,0,0,0,0,0,0,0,0,1,1,2,1,0,0,0,0,0],
-  [0,0,0,0,0,1,2,1,1,0,1,1,1,0,0,1,1,1,0,1,1,2,1,0,0,0,0,0],
-  [1,1,1,1,1,1,2,1,1,0,1,0,0,0,0,0,0,1,0,1,1,2,1,1,1,1,1,1],
-  [0,0,0,0,0,0,2,0,0,0,1,0,0,0,0,0,0,1,0,0,0,2,0,0,0,0,0,0],
-  [1,1,1,1,1,1,2,1,1,0,1,0,0,0,0,0,0,1,0,1,1,2,1,1,1,1,1,1],
+  [0,0,0,0,0,1,2,1,1,0,1,1,1,4,4,1,1,1,0,1,1,2,1,0,0,0,0,0],
+  [1,1,1,1,1,1,2,1,1,0,1,4,4,4,4,4,4,1,0,1,1,2,1,1,1,1,1,1],
+  [0,0,0,0,0,0,2,0,0,0,1,4,4,4,4,4,4,1,0,0,0,2,0,0,0,0,0,0],
+  [1,1,1,1,1,1,2,1,1,0,1,4,4,4,4,4,4,1,0,1,1,2,1,1,1,1,1,1],
   [0,0,0,0,0,1,2,1,1,0,1,1,1,1,1,1,1,1,0,1,1,2,1,0,0,0,0,0],
   [0,0,0,0,0,1,2,1,1,0,0,0,0,0,0,0,0,0,0,1,1,2,1,0,0,0,0,0],
   [0,0,0,0,0,1,2,1,1,0,1,1,1,1,1,1,1,1,0,1,1,2,1,0,0,0,0,0],
@@ -52,6 +53,14 @@ function isPassable(col, row) {
   return MAZE_TEMPLATE[row][col] !== WALL;
 }
 
+// Same as isPassable but also blocks the ghost house — used by Pacman AI
+function isPassableForPacman(col, row) {
+  if (row < 0 || row >= MAZE_TEMPLATE.length) return false;
+  if (col < 0 || col >= MAZE_TEMPLATE[0].length) return false;
+  const tile = MAZE_TEMPLATE[row][col];
+  return tile !== WALL && tile !== GHOST_HOME;
+}
+
 // Return a fresh copy of the maze dots (so each game gets a clean slate)
 function freshDots() {
   return MAZE_TEMPLATE.map(row => row.slice());
@@ -67,4 +76,4 @@ function countDots(dots) {
   return count;
 }
 
-module.exports = { EMPTY, WALL, DOT, POWER, MAZE_TEMPLATE, isWall, isPassable, freshDots, countDots };
+module.exports = { EMPTY, WALL, DOT, POWER, GHOST_HOME, MAZE_TEMPLATE, isWall, isPassable, isPassableForPacman, freshDots, countDots };

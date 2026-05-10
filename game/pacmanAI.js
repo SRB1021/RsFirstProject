@@ -1,4 +1,4 @@
-const { isPassable, DOT, POWER, EMPTY } = require('./maze');
+const { isPassableForPacman, DOT, POWER, EMPTY } = require('./maze');
 
 // Direction vectors: each direction maps to a col/row change
 const DIRS = {
@@ -25,7 +25,7 @@ function movePacman(state, maze) {
   // Find directions Pacman can actually move (not walls)
   const available = allDirs.filter(dir => {
     const { dc, dr } = DIRS[dir];
-    return isPassable(pac.col + dc, pac.row + dr);
+    return isPassableForPacman(pac.col + dc, pac.row + dr);
   });
 
   if (available.length === 0) return; // stuck, shouldn't happen
