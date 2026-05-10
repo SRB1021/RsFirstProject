@@ -4,6 +4,7 @@ let currentRoomCode = null;
 let currentState   = null;
 let previousState  = null;
 let lastUpdateTime = 0;
+let isRoomCreator  = false;
 const TICK_MS = 150;
 
 // DOM refs
@@ -204,13 +205,17 @@ socket.on('lobby_status', ({ takenGhosts }) => {
   renderGhostPicker(takenGhosts);
 });
 
-socket.on('game_joined', ({ ghostName, roomCode }) => {
+socket.on('game_joined', ({ ghostName, roomCode, isCreator }) => {
   myGhostName = ghostName;
   currentRoomCode = roomCode;
+  isRoomCreator = !!isCreator;
   playerLabel.textContent  = `You are: ${ghostName}`;
   roomCodeLabel.textContent = `Room: ${roomCode}`;
   lobby.style.display      = 'none';
   gameScreen.style.display = 'flex';
+
+  difficultyGame.disabled = !isRoomCreator;
+  difficultyGame.title = isRoomCreator ? '' : 'Only the lobby creator can change difficulty';
 
   difficultyGame.value = difficultyInput.value;
   difficultyGameValue.textContent = difficultyInput.value;
@@ -228,9 +233,12 @@ socket.on('game_full', () => {
 });
 
 socket.on('game_state', (state) => {
-  previousState  = currentState;
+  const prev = currentState;
+  previousState  = prev;
   currentState   = state;
   lastUpdateTime = performance.now();
+
+  audio.update(state, prev);
 
   if (state.difficulty !== undefined && Number(difficultyGame.value) !== state.difficulty) {
     difficultyGame.value = state.difficulty;
@@ -257,11 +265,14 @@ socket.on('game_over', ({ winner }) => {
     ? 'Ghosts Win! You caught Pacman!'
     : 'Pacman Wins! He ate all the dots!';
   overlay.style.display = 'flex';
+  audio.stopSiren();
+  if (winner === 'ghosts') audio.death(); else audio.victory();
 });
 
 socket.on('game_restarted', () => {
   previousState = null;
   overlay.style.display = 'none';
+  audio.stopSiren();
 });
 
 // --- 60fps render loop ---

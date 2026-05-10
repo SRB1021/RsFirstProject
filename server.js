@@ -48,7 +48,7 @@ io.on('connection', (socket) => {
   // Player wants to create a new lobby
   socket.on('create_room', () => {
     const code = generateCode();
-    rooms.set(code, { state: createGameState() });
+    rooms.set(code, { state: createGameState(), creatorId: socket.id });
     socketCreated.set(socket.id, code);
     socket.join(code); // join Socket.io room so lobby_status broadcasts reach this socket
     socket.emit('room_created', { code });
@@ -89,8 +89,9 @@ io.on('connection', (socket) => {
     socketRoom.set(socket.id, code);
     socket.join(code);
 
+    const isCreator = room.creatorId === socket.id;
     console.log(`${name || 'Anonymous'} joined room ${code} as ${ghostName}`);
-    socket.emit('game_joined', { ghostName, roomCode: code });
+    socket.emit('game_joined', { ghostName, roomCode: code, isCreator });
     io.to(code).emit('lobby_status', { takenGhosts: getTakenGhosts(state) });
   });
 
@@ -104,7 +105,7 @@ io.on('connection', (socket) => {
   socket.on('set_difficulty', ({ difficulty }) => {
     const code = socketRoom.get(socket.id);
     const room = code && rooms.get(code);
-    if (!room) return;
+    if (!room || room.creatorId !== socket.id) return;
     setDifficulty(room.state, difficulty);
   });
 

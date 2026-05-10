@@ -306,6 +306,11 @@ input[type="range"]::-moz-range-thumb {
   min-width: 1ch;
 }
 
+#difficultyGame:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* Game screen */
 #gameScreen {
   position: relative;
