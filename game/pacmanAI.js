@@ -37,15 +37,26 @@ function movePacman(state, maze) {
   const nonReverse = available.filter(dir => dir !== OPPOSITE[pac.direction]);
   const choices = nonReverse.length > 0 ? nonReverse : available;
 
-  // Ghost avoidance: capped at 7 so Pacman still pursues dots even at max difficulty.
-  // Previous value (difficulty*1.2) reached 12 at level 10, making Pacman too paralysed to win.
-  const avoidStrength = 1 + difficulty * 0.6; // 1→1.6  5→4  10→7
-  const chaseStrength = difficulty * 2;        // 1→2    5→10 10→20
-  // Dot bonus scales up with difficulty so high-difficulty Pacman stays aggressive about eating
-  const dotBonus   = 5 + difficulty;           // 1→6    5→10 10→15
-  const powerBonus = 8 + difficulty;           // 1→9    5→13 10→18
-  // Random noise drowns out smart decisions at low difficulty
-  const noise = (11 - difficulty) * 2;         // 1→20   5→12 10→2
+  // --- Difficulty scaling ---
+  // Detection range: how many tiles away Pacman reacts to a ghost
+  const avoidRange = difficulty === 10 ? 6 : difficulty === 9 ? 5 : 4;
+
+  // Avoidance penalty per tile of closeness — steep jump at 9-10
+  const avoidStrength = difficulty >= 9
+    ? (difficulty === 9 ? 10 : 15)   // 9→10  10→15
+    : 1 + difficulty * 0.6;          //  1→1.6  5→4  8→5.8
+
+  const chaseStrength = difficulty * 2;   // 1→2  5→10  10→20
+
+  // Dot bonus stays high so Pacman never stops eating
+  const dotBonus   = 5 + difficulty;      // 1→6  5→10  10→15
+  // Power pellet bonus spikes at high difficulty — Pacman treats them as weapons
+  const powerBonus = difficulty >= 9
+    ? 8 + difficulty * 3              // 9→35  10→38
+    : 8 + difficulty;                 //  1→9   5→13   8→16
+
+  // Zero noise at 9-10 — perfectly deterministic, no random wandering
+  const noise = difficulty >= 9 ? 0 : (11 - difficulty) * 2;  // 1→20  8→6
 
   let best = null;
   let bestScore = -Infinity;
@@ -60,13 +71,27 @@ function movePacman(state, maze) {
     if (cell === DOT)   score += dotBonus;
     if (cell === POWER) score += powerBonus;
 
+    // Ghost avoidance / scared-ghost chasing
     for (const ghostName of Object.keys(state.ghosts)) {
       const g = state.ghosts[ghostName];
       const dist = manhattanDistance(newCol, newRow, g.col, g.row);
       if (g.scared) {
         if (dist < 6) score += (7 - dist) * chaseStrength;
       } else {
-        if (dist < 4) score -= (5 - dist) * avoidStrength;
+        if (dist < avoidRange) score -= (avoidRange - dist) * avoidStrength;
+      }
+    }
+
+    // At difficulty 8+, look up to 3 tiles ahead for a power pellet and bonus the path
+    if (difficulty >= 8) {
+      let lc = newCol, lr = newRow;
+      for (let step = 1; step <= 3; step++) {
+        lc += dc; lr += dr;
+        if (!isPassableForPacman(lc, lr)) break;
+        if (maze[lr] && maze[lr][lc] === POWER) {
+          score += (4 - step) * (difficulty - 7) * 4; // 8→4/step 9→8/step 10→12/step
+          break;
+        }
       }
     }
 
