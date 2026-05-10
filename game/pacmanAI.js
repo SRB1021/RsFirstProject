@@ -1,6 +1,5 @@
 const { isPassableForPacman, DOT, POWER, EMPTY } = require('./maze');
 
-// Direction vectors: each direction maps to a col/row change
 const DIRS = {
   left:  { dc: -1, dr:  0 },
   right: { dc:  1, dr:  0 },
@@ -14,27 +13,36 @@ function manhattanDistance(c1, r1, c2, r2) {
   return Math.abs(c1 - c2) + Math.abs(r1 - r2);
 }
 
-// Move Pacman one tile using simple AI:
-// - Prefer directions that lead toward a dot
-// - Never reverse unless it's the only option
-// - Avoid ghosts if they're very close
+// Move Pacman one tile.
+// difficulty 1 = slow + random + poor avoidance
+// difficulty 10 = full speed + smart + strong avoidance
 function movePacman(state, maze) {
+  const difficulty = state.difficulty || 5;
+
+  // At low difficulty Pacman sometimes skips a turn (feels slower/dumber)
+  // difficulty 1 → 40% skip, difficulty 5 → 0% skip, 6-10 → never skip
+  const skipChance = Math.max(0, (5 - difficulty) * 0.08);
+  if (Math.random() < skipChance) return;
+
   const pac = state.pacman;
   const allDirs = Object.keys(DIRS);
 
-  // Find directions Pacman can actually move (not walls)
   const available = allDirs.filter(dir => {
     const { dc, dr } = DIRS[dir];
     return isPassableForPacman(pac.col + dc, pac.row + dr);
   });
 
-  if (available.length === 0) return; // stuck, shouldn't happen
+  if (available.length === 0) return;
 
-  // Remove the reverse direction unless it's the only option
   const nonReverse = available.filter(dir => dir !== OPPOSITE[pac.direction]);
   const choices = nonReverse.length > 0 ? nonReverse : available;
 
-  // Score each direction: prefer dots, run from nearby ghosts
+  // How strongly Pacman avoids/chases ghosts scales with difficulty
+  const avoidStrength = difficulty * 1.2;   // 1→1.2  5→6  10→12
+  const chaseStrength = difficulty * 2;     // 1→2    5→10 10→20
+  // Random noise drowns out smart decisions at low difficulty
+  const noise = (11 - difficulty) * 2;     // 1→20   5→12 10→2
+
   let best = null;
   let bestScore = -Infinity;
 
@@ -44,24 +52,21 @@ function movePacman(state, maze) {
     const newRow = pac.row + dr;
     let score = 0;
 
-    // Strong bonus for moving onto a dot or power pellet
     const cell = maze[newRow] && maze[newRow][newCol];
-    if (cell === DOT) score += 10;
+    if (cell === DOT)   score += 10;
     if (cell === POWER) score += 15;
 
-    // Avoid normal ghosts, but CHASE scared ones
     for (const ghostName of Object.keys(state.ghosts)) {
       const g = state.ghosts[ghostName];
       const dist = manhattanDistance(newCol, newRow, g.col, g.row);
       if (g.scared) {
-        if (dist < 6) score += (7 - dist) * 10; // strong pull toward scared ghosts
+        if (dist < 6) score += (7 - dist) * chaseStrength;
       } else {
-        if (dist < 4) score -= (5 - dist) * 8;  // repel from normal ghosts
+        if (dist < 4) score -= (5 - dist) * avoidStrength;
       }
     }
 
-    // Small random tie-breaker so Pacman doesn't get stuck in loops
-    score += Math.random() * 2;
+    score += Math.random() * noise;
 
     if (score > bestScore) {
       bestScore = score;
@@ -75,13 +80,11 @@ function movePacman(state, maze) {
     pac.col += dc;
     pac.row += dr;
 
-    // Eat the dot if Pacman walked onto one
     if (state.dots[pac.row] && (state.dots[pac.row][pac.col] === DOT || state.dots[pac.row][pac.col] === POWER)) {
       const atePower = state.dots[pac.row][pac.col] === POWER;
       state.dots[pac.row][pac.col] = EMPTY;
       state.dotsRemaining--;
 
-      // Power pellet — make all ghosts scared for ~7 seconds (50 ticks at 150ms each)
       if (atePower) {
         for (const ghost of Object.values(state.ghosts)) {
           ghost.scared = true;

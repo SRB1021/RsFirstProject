@@ -3,7 +3,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
 
-const { getState, addPlayer, removePlayer, applyInput, resetGame, respawnGhost } = require('./game/gameState');
+const { getState, addPlayer, removePlayer, applyInput, resetGame, respawnGhost, setDifficulty } = require('./game/gameState');
 const { movePacman } = require('./game/pacmanAI');
 const { moveCPUGhosts, moveHumanGhost } = require('./game/ghostAI');
 
@@ -27,6 +27,8 @@ io.on('connection', (socket) => {
       resetGame();
     }
 
+    if (data.difficulty) setDifficulty(data.difficulty);
+
     const ghostName = addPlayer(socket.id);
     if (!ghostName) {
       socket.emit('game_full');
@@ -40,6 +42,11 @@ io.on('connection', (socket) => {
   // Player pressed an arrow key
   socket.on('player_input', (data) => {
     applyInput(socket.id, data.direction);
+  });
+
+  // Player changed the difficulty slider
+  socket.on('set_difficulty', (data) => {
+    setDifficulty(data.difficulty);
   });
 
   // Player wants to restart after game over

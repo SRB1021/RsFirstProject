@@ -14,6 +14,11 @@
     <p>You and your friends are the ghosts!<br>Chase Pacman before he eats all the dots!</p>
     <input type="text" id="nameInput" placeholder="Your name" maxlength="16">
     <br>
+    <div class="difficulty-row">
+      <label for="difficultyInput">Pacman difficulty: <span id="difficultyValue">5</span></label>
+      <input type="range" id="difficultyInput" min="1" max="10" value="5">
+      <span class="diff-hint">1 = easy &nbsp; 10 = hard</span>
+    </div>
     <button id="joinBtn">Join Game</button>
     <p id="lobbyMsg"></p>
   </div>
@@ -24,6 +29,10 @@
       <span id="playerLabel">You are: </span>
       <span id="dotsLabel">Dots left: </span>
       <span id="playersLabel">Players online: 0/4</span>
+      <span id="difficultyBar">
+        Pacman: <input type="range" id="difficultyGame" min="1" max="10" value="5">
+        <span id="difficultyGameValue">5</span>
+      </span>
     </div>
     <canvas id="gameCanvas"></canvas>
     <div id="overlay" style="display:none;">

@@ -18,11 +18,27 @@ const overlay      = document.getElementById('overlay');
 const overlayTitle = document.getElementById('overlayTitle');
 const restartBtn   = document.getElementById('restartBtn');
 
+const difficultyInput     = document.getElementById('difficultyInput');
+const difficultyValue     = document.getElementById('difficultyValue');
+const difficultyGame      = document.getElementById('difficultyGame');
+const difficultyGameValue = document.getElementById('difficultyGameValue');
+
+// Keep lobby slider label in sync
+difficultyInput.addEventListener('input', () => {
+  difficultyValue.textContent = difficultyInput.value;
+});
+
+// In-game slider: send new difficulty to server immediately
+difficultyGame.addEventListener('input', () => {
+  difficultyGameValue.textContent = difficultyGame.value;
+  socket.emit('set_difficulty', { difficulty: Number(difficultyGame.value) });
+});
+
 // --- Button handlers ---
 
 joinBtn.addEventListener('click', () => {
   const name = nameInput.value.trim() || 'Ghost Player';
-  socket.emit('join_game', { name });
+  socket.emit('join_game', { name, difficulty: Number(difficultyInput.value) });
   joinBtn.disabled = true;
   lobbyMsg.textContent = 'Joining game...';
 });
@@ -44,6 +60,10 @@ socket.on('game_joined', (data) => {
   lobby.style.display = 'none';
   gameScreen.style.display = 'flex';
 
+  // Sync in-game slider to whatever difficulty is currently set
+  difficultyGame.value = difficultyInput.value;
+  difficultyGameValue.textContent = difficultyInput.value;
+
   // Set canvas size once so we never resize mid-frame (resizing clears the canvas)
   canvas.width  = MAZE_COLS * TILE_SIZE;
   canvas.height = MAZE_ROWS * TILE_SIZE;
@@ -61,6 +81,13 @@ socket.on('game_state', (state) => {
   previousState = currentState;
   currentState  = state;
   lastUpdateTime = performance.now();
+
+  // Keep in-game slider in sync with server-side difficulty
+  // (so late joiners see the current value)
+  if (state.difficulty !== undefined && Number(difficultyGame.value) !== state.difficulty) {
+    difficultyGame.value = state.difficulty;
+    difficultyGameValue.textContent = state.difficulty;
+  }
 
   // Update status bar
   const humanCount = Object.values(state.ghosts).filter(g => !g.isCPU).length;

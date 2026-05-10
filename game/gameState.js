@@ -42,6 +42,7 @@ function createGameState() {
     phase: 'waiting',   // 'waiting' | 'playing' | 'gameover'
     winner: null,       // 'ghosts' | 'pacman'
     playerCount: 0,
+    difficulty: 5,      // 1 (easy) – 10 (hard)
   };
 }
 
@@ -111,6 +112,10 @@ function getState() {
   return state;
 }
 
+function setDifficulty(level) {
+  state.difficulty = Math.max(1, Math.min(10, level));
+}
+
 // Send a ghost back to the ghost house after Pacman eats it
 function respawnGhost(name) {
   state.ghosts[name].col = GHOST_STARTS[name].col;
@@ -120,4 +125,4 @@ function respawnGhost(name) {
   state.ghosts[name].scaredTimer = 0;
 }
 
-module.exports = { getState, addPlayer, removePlayer, applyInput, resetGame, respawnGhost, GHOST_NAMES };
+module.exports = { getState, addPlayer, removePlayer, applyInput, resetGame, respawnGhost, setDifficulty, GHOST_NAMES };
