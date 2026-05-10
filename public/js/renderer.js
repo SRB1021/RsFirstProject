@@ -72,20 +72,19 @@ function drawPacman(ctx, pacman, prevPacman, alpha) {
   const { x, y } = lerpPx(prev.col, prev.row, pacman.col, pacman.row, alpha);
   const radius = TILE_SIZE / 2 - 2;
 
-  const mouthAngles = {
-    right: { start: 0.25, end: 1.75 },
-    left:  { start: 1.25, end: 2.75 },
-    up:    { start: 1.75, end: 3.25 },
-    down:  { start: 0.75, end: 2.25 },
-  };
-  const { start, end } = mouthAngles[pacman.direction] || mouthAngles.right;
+  // Mouth chomps open/closed in sync with the 150ms game tick
+  const mouthOpen = Math.abs(Math.sin(performance.now() / 150 * Math.PI)) * 0.25;
+
+  // Base angle (in PI units) for each direction — where the mouth opening faces
+  const dirBase = { right: 0, down: 0.5, left: 1, up: 1.5 };
+  const base = dirBase[pacman.direction] || 0;
 
   ctx.fillStyle = '#FFD700';
   ctx.shadowColor = '#FFD700';
   ctx.shadowBlur = 6;
   ctx.beginPath();
   ctx.moveTo(x, y);
-  ctx.arc(x, y, radius, start * Math.PI, end * Math.PI);
+  ctx.arc(x, y, radius, (base + mouthOpen) * Math.PI, (base + 2 - mouthOpen) * Math.PI);
   ctx.closePath();
   ctx.fill();
   ctx.shadowBlur = 0;
