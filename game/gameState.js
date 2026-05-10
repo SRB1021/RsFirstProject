@@ -2,6 +2,9 @@ const { freshDots, countDots } = require('./maze');
 
 const GHOST_NAMES = ['Blinky', 'Pinky', 'Inky', 'Clyde'];
 
+// Staggered exit delays (in ticks at 150ms each): Blinky exits first
+const EXIT_TIMERS = { Blinky: 20, Pinky: 30, Inky: 40, Clyde: 50 };
+
 const GHOST_STARTS = {
   Blinky: { col: 13, row: 14 },
   Pinky:  { col: 13, row: 14 },
@@ -23,6 +26,8 @@ function createGameState() {
       isCPU: true,
       scared: false,
       scaredTimer: 0,
+      inHouse: true,
+      exitTimer: EXIT_TIMERS[name],
     };
   }
   return {
@@ -87,6 +92,8 @@ function resetGame(state) {
     state.ghosts[name].nextDirection = 'left';
     state.ghosts[name].scared = false;
     state.ghosts[name].scaredTimer = 0;
+    state.ghosts[name].inHouse = true;
+    state.ghosts[name].exitTimer = EXIT_TIMERS[name];
   }
   state.phase = state.playerCount > 0 ? 'playing' : 'waiting';
 }
@@ -94,9 +101,11 @@ function resetGame(state) {
 function respawnGhost(state, name) {
   state.ghosts[name].col = GHOST_STARTS[name].col;
   state.ghosts[name].row = GHOST_STARTS[name].row;
-  state.ghosts[name].direction = 'left';
+  state.ghosts[name].direction = 'up';
   state.ghosts[name].scared = false;
   state.ghosts[name].scaredTimer = 0;
+  state.ghosts[name].inHouse = true;
+  state.ghosts[name].exitTimer = 20; // 3 seconds before re-entering the chase
 }
 
 function setDifficulty(state, level) {

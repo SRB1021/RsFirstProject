@@ -108,52 +108,74 @@ function moveAwayFromTarget(ghost, ghostName, targetCol, targetRow, occupied) {
   }
 }
 
+// Ghost house exit target: the open tile just above the house door
+const EXIT_COL = 13;
+const EXIT_ROW = 11;
+
+// Handles ghost-house timer and exit navigation.
+// Returns true if the ghost's movement was handled (skip normal AI).
+function handleGhostHouse(ghost, ghostName, allGhosts) {
+  if (!ghost.inHouse) return false;
+
+  if (ghost.exitTimer > 0) {
+    ghost.exitTimer--;
+    return true; // waiting — don't move
+  }
+
+  // Timer done: steer toward the exit tile
+  moveTowardTarget(ghost, ghostName, EXIT_COL, EXIT_ROW, otherGhostTiles(allGhosts, ghostName));
+
+  // Once the ghost is no longer on a ghost-house tile, it has exited
+  if (!isGhostHome(ghost.col, ghost.row)) {
+    ghost.inHouse = false;
+  }
+
+  return true; // movement already handled
+}
+
 // Move all CPU-controlled ghosts using their individual targeting rules
 function moveCPUGhosts(state) {
   const pac = state.pacman;
   const ghosts = state.ghosts;
 
-  for (const ghost of Object.values(ghosts)) {
+  for (const [name, ghost] of Object.entries(ghosts)) {
     if (!ghost.isCPU) continue;
+    if (handleGhostHouse(ghost, name, ghosts)) continue;
 
-    // All scared ghosts run away from Pacman regardless of their normal behavior
+    // Scared ghosts run away from Pacman
     if (ghost.scared) {
-      const name = Object.keys(ghosts).find(n => ghosts[n] === ghost);
       moveAwayFromTarget(ghost, name, pac.col, pac.row, otherGhostTiles(ghosts, name));
       continue;
     }
-  }
 
-  // Blinky (red): always targets Pacman directly
-  if (ghosts.Blinky.isCPU && !ghosts.Blinky.scared) {
-    moveTowardTarget(ghosts.Blinky, 'Blinky', pac.col, pac.row, otherGhostTiles(ghosts, 'Blinky'));
-  }
-
-  // Pinky (pink): targets 4 tiles ahead of Pacman's direction
-  if (ghosts.Pinky.isCPU && !ghosts.Pinky.scared) {
-    const DIRS_VEC = { left: [-4, 0], right: [4, 0], up: [0, -4], down: [0, 4] };
-    const [dc, dr] = DIRS_VEC[pac.direction] || [0, 0];
-    moveTowardTarget(ghosts.Pinky, 'Pinky', pac.col + dc, pac.row + dr, otherGhostTiles(ghosts, 'Pinky'));
-  }
-
-  // Inky (cyan): targets Pacman directly (simpler version of classic Inky)
-  if (ghosts.Inky.isCPU && !ghosts.Inky.scared) {
-    moveTowardTarget(ghosts.Inky, 'Inky', pac.col, pac.row, otherGhostTiles(ghosts, 'Inky'));
-  }
-
-  // Clyde (orange): chases Pacman when far, retreats to corner when close
-  if (ghosts.Clyde.isCPU && !ghosts.Clyde.scared) {
-    const dist = manhattanDistance(ghosts.Clyde.col, ghosts.Clyde.row, pac.col, pac.row);
-    if (dist > 8) {
-      moveTowardTarget(ghosts.Clyde, 'Clyde', pac.col, pac.row, otherGhostTiles(ghosts, 'Clyde'));
-    } else {
-      moveTowardTarget(ghosts.Clyde, 'Clyde', 1, 29, otherGhostTiles(ghosts, 'Clyde'));
+    // Individual chase targets
+    if (name === 'Blinky') {
+      moveTowardTarget(ghost, name, pac.col, pac.row, otherGhostTiles(ghosts, name));
+    } else if (name === 'Pinky') {
+      const DIRS_VEC = { left: [-4, 0], right: [4, 0], up: [0, -4], down: [0, 4] };
+      const [dc, dr] = DIRS_VEC[pac.direction] || [0, 0];
+      moveTowardTarget(ghost, name, pac.col + dc, pac.row + dr, otherGhostTiles(ghosts, name));
+    } else if (name === 'Inky') {
+      moveTowardTarget(ghost, name, pac.col, pac.row, otherGhostTiles(ghosts, name));
+    } else if (name === 'Clyde') {
+      const dist = manhattanDistance(ghost.col, ghost.row, pac.col, pac.row);
+      if (dist > 8) {
+        moveTowardTarget(ghost, name, pac.col, pac.row, otherGhostTiles(ghosts, name));
+      } else {
+        moveTowardTarget(ghost, name, 1, 29, otherGhostTiles(ghosts, name));
+      }
     }
   }
 }
 
 // Move a single human-controlled ghost in the direction they pressed
 function moveHumanGhost(ghost, ghostName, allGhosts) {
+  // Ghost house exit: handle timer and auto-exit, then return
+  if (ghost.inHouse) {
+    handleGhostHouse(ghost, ghostName, allGhosts);
+    return;
+  }
+
   if (!ghost.nextDirection) return;
 
   const { dc, dr } = DIRS[ghost.nextDirection] || {};

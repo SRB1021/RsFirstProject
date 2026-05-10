@@ -1,4 +1,4 @@
-const { isPassableForPacman, wrapTunnel, DOT, POWER, EMPTY } = require('./maze');
+const { isPassableForPacman, isPassable, wrapTunnel, DOT, POWER, EMPTY } = require('./maze');
 
 const DIRS = {
   left:  { dc: -1, dr:  0 },
@@ -6,167 +6,208 @@ const DIRS = {
   up:    { dc:  0, dr: -1 },
   down:  { dc:  0, dr:  1 },
 };
-
-const OPPOSITE = { left: 'right', right: 'left', up: 'down', down: 'up' };
+const DIR_LIST   = Object.keys(DIRS);
+const OPPOSITE   = { left: 'right', right: 'left', up: 'down', down: 'up' };
 
 function manhattanDistance(c1, r1, c2, r2) {
   return Math.abs(c1 - c2) + Math.abs(r1 - r2);
 }
 
-// Count open exits from a tile (excluding a blocked-back direction)
+// BFS from (startCol, startRow); returns a Map of "col,row" → distance.
+// Stops at maxDepth tiles. Only traverses Pac-Man-passable tiles.
+function bfsDistances(startCol, startRow, maxDepth) {
+  const dist = new Map();
+  const key0 = `${startCol},${startRow}`;
+  dist.set(key0, 0);
+  const queue = [{ col: startCol, row: startRow, d: 0 }];
+  let head = 0;
+  while (head < queue.length) {
+    const { col, row, d } = queue[head++];
+    if (d >= maxDepth) continue;
+    for (const { dc, dr } of Object.values(DIRS)) {
+      const { col: wc, row: wr } = wrapTunnel(col + dc, row + dr);
+      if (!isPassableForPacman(wc, wr)) continue;
+      const k = `${wc},${wr}`;
+      if (!dist.has(k)) {
+        dist.set(k, d + 1);
+        queue.push({ col: wc, row: wr, d: d + 1 });
+      }
+    }
+  }
+  return dist;
+}
+
+// Project a ghost's position N ticks ahead using its current direction.
+// Ghosts use isPassable (they can enter ghost house); if blocked they stay put.
+function predictGhost(ghost, ticks) {
+  let { col, row, direction } = ghost;
+  for (let i = 0; i < ticks; i++) {
+    const { dc, dr } = DIRS[direction] || { dc: 0, dr: 0 };
+    const nc = col + dc, nr = row + dr;
+    const { col: wc, row: wr } = wrapTunnel(nc, nr);
+    if (isPassable(wc, wr)) { col = wc; row = wr; }
+    // if wall, ghost likely turns — we just freeze it (conservative estimate)
+  }
+  return { col, row };
+}
+
+// Count exits from a tile (how many passable neighbours, excluding back-direction)
 function countExits(col, row, fromDir) {
   let exits = 0;
   for (const [dir, { dc, dr }] of Object.entries(DIRS)) {
     if (dir === fromDir) continue;
-    if (isPassableForPacman(col + dc, row + dr)) exits++;
+    const { col: wc, row: wr } = wrapTunnel(col + dc, row + dr);
+    if (isPassableForPacman(wc, wr)) exits++;
   }
   return exits;
 }
 
-// Simulate Pac-Man moving n steps in a direction; return final col,row
-function lookaheadPos(col, row, dc, dr, steps) {
-  let c = col, r = row;
-  for (let i = 0; i < steps; i++) {
-    const nc = c + dc, nr = r + dr;
-    if (!isPassableForPacman(nc, nr)) break;
-    ({ col: c, row: r } = wrapTunnel(nc, nr));
+// Score a candidate move direction. Higher = better for Pac-Man.
+function scoreMove(dir, pac, state, maze, difficulty) {
+  const { dc, dr } = DIRS[dir];
+  const { col: wc, row: wr } = wrapTunnel(pac.col + dc, pac.row + dr);
+
+  // --- Difficulty knobs ---
+  const bfsDepth      = difficulty >= 9 ? 20 : difficulty >= 7 ? 14 : difficulty >= 4 ? 9 : 5;
+  const avoidRange    = difficulty >= 10 ? 10 : difficulty >= 9 ? 8 : difficulty >= 7 ? 6 : 4;
+  const avoidStrength = difficulty >= 10 ? 40 : difficulty >= 9 ? 25 : difficulty >= 7 ? 12 : 1 + difficulty * 0.6;
+  const chaseStrength = difficulty * 2.5;
+  const dotBonus      = 6 + difficulty;            // 7 … 16
+  const powerBonus    = difficulty >= 10 ? 90 : difficulty >= 9 ? 60 : 8 + difficulty * 1.5;
+  const noise         = difficulty >= 9 ? 0 : difficulty >= 7 ? 2 : (11 - difficulty) * 2;
+  const ghostPredictTicks = difficulty >= 8 ? 3 : difficulty >= 5 ? 2 : 0;
+
+  let score = Math.random() * noise;
+
+  // --- 1. Immediate tile value ---
+  const cell = maze[wr]?.[wc];
+  if (cell === DOT)   score += dotBonus;
+  if (cell === POWER) score += powerBonus;
+
+  // --- 2. Ghost avoidance / chasing (with trajectory prediction) ---
+  const anyScared = Object.values(state.ghosts).some(g => g.scared);
+  for (const g of Object.values(state.ghosts)) {
+    const predicted = ghostPredictTicks > 0 && !g.scared
+      ? predictGhost(g, ghostPredictTicks)
+      : g;
+    const dist = manhattanDistance(wc, wr, predicted.col, predicted.row);
+    if (g.scared) {
+      const actualDist = manhattanDistance(wc, wr, g.col, g.row);
+      if (actualDist < 7) score += (8 - actualDist) * chaseStrength;
+    } else {
+      if (dist < avoidRange) score -= (avoidRange - dist) * avoidStrength;
+    }
   }
-  return { col: c, row: r };
+
+  // --- 3. BFS-based dot seeking ---
+  // Find the nearest dot/power pellet reachable from the candidate tile.
+  if (difficulty >= 4) {
+    const distMap = bfsDistances(wc, wr, bfsDepth);
+    let nearestDot   = Infinity;
+    let nearestPower = Infinity;
+    for (const [key, d] of distMap) {
+      const [c, r] = key.split(',').map(Number);
+      const tileVal = maze[r]?.[c];
+      if (tileVal === DOT   && d < nearestDot)   nearestDot   = d;
+      if (tileVal === POWER && d < nearestPower) nearestPower = d;
+    }
+    if (nearestDot   < Infinity) score += dotBonus   / (nearestDot   + 1);
+    if (nearestPower < Infinity) score += powerBonus / (nearestPower + 1);
+
+    // --- 4. Open-space preference when threatened ---
+    // Count how many tiles Pac-Man can reach from this tile before a ghost gets there.
+    // Fewer reachable tiles = more dangerous.
+    if (difficulty >= 6) {
+      let safeCount = 0;
+      for (const [key, pacDist] of distMap) {
+        const [c, r] = key.split(',').map(Number);
+        let safe = true;
+        for (const g of Object.values(state.ghosts)) {
+          if (!g.scared) {
+            const gDist = manhattanDistance(c, r, g.col, g.row);
+            if (gDist <= pacDist) { safe = false; break; }
+          }
+        }
+        if (safe) safeCount++;
+      }
+      score += safeCount * (difficulty >= 9 ? 0.6 : 0.25);
+    }
+  }
+
+  // --- 5. Dead-end penalty (difficulty 7+) ---
+  if (difficulty >= 7) {
+    const exits = countExits(wc, wr, OPPOSITE[dir]);
+    const closestGhost = Math.min(...Object.values(state.ghosts)
+      .filter(g => !g.scared)
+      .map(g => manhattanDistance(wc, wr, g.col, g.row)));
+    if (exits === 0 && closestGhost < avoidRange) score -= avoidStrength * 10;
+    else if (exits === 1 && closestGhost < 5)     score -= avoidStrength * 3;
+  }
+
+  // --- 6. Power pellet pathfinding when surrounded (difficulty 8+) ---
+  if (difficulty >= 8 && !anyScared) {
+    const closestGhost = Math.min(...Object.values(state.ghosts)
+      .filter(g => !g.scared)
+      .map(g => manhattanDistance(pac.col, pac.row, g.col, g.row)));
+    if (closestGhost <= avoidRange) {
+      // BFS from Pac-Man's current position to find nearest power pellet direction
+      const fromPac = bfsDistances(pac.col, pac.row, bfsDepth);
+      let nearestPowerFromPac = Infinity;
+      let bestPowerCol = -1, bestPowerRow = -1;
+      for (const [key, d] of fromPac) {
+        const [c, r] = key.split(',').map(Number);
+        if (maze[r]?.[c] === POWER && d < nearestPowerFromPac) {
+          nearestPowerFromPac = d;
+          bestPowerCol = c; bestPowerRow = r;
+        }
+      }
+      if (nearestPowerFromPac < Infinity) {
+        // Reward moves that bring Pac-Man closer to that power pellet
+        const distAfter = manhattanDistance(wc, wr, bestPowerCol, bestPowerRow);
+        const distBefore = manhattanDistance(pac.col, pac.row, bestPowerCol, bestPowerRow);
+        if (distAfter < distBefore) score += powerBonus * 0.8;
+      }
+    }
+  }
+
+  return score;
 }
 
-// Single Pac-Man step
+// One movement step
 function stepPacman(state, maze, difficulty) {
   const skipChance = Math.max(0, (5 - difficulty) * 0.08);
   if (Math.random() < skipChance) return;
 
   const pac = state.pacman;
-  const allDirs = Object.keys(DIRS);
 
-  const available = allDirs.filter(dir => {
+  const available = DIR_LIST.filter(dir => {
     const { dc, dr } = DIRS[dir];
-    return isPassableForPacman(pac.col + dc, pac.row + dr);
+    const { col: wc, row: wr } = wrapTunnel(pac.col + dc, pac.row + dr);
+    return isPassableForPacman(wc, wr);
   });
-
   if (available.length === 0) return;
 
   const nonReverse = available.filter(dir => dir !== OPPOSITE[pac.direction]);
   const choices = nonReverse.length > 0 ? nonReverse : available;
 
-  // --- Difficulty scaling ---
-  const avoidRange    = difficulty >= 10 ? 10
-                      : difficulty === 9  ?  7
-                      : 4;
-
-  const avoidStrength = difficulty >= 10 ? 35
-                      : difficulty === 9  ? 20
-                      : 1 + difficulty * 0.6;
-
-  const chaseStrength = difficulty * 2;
-
-  const dotBonus   = 5 + difficulty;
-  const powerBonus = difficulty >= 10 ? 80
-                   : difficulty === 9  ? 50
-                   : 8 + difficulty;
-
-  const noise = difficulty >= 9 ? 0 : (11 - difficulty) * 2;
-
-  let best = null;
+  let best = choices[0];
   let bestScore = -Infinity;
-
   for (const dir of choices) {
-    const { dc, dr } = DIRS[dir];
-    const newCol = pac.col + dc;
-    const newRow = pac.row + dr;
-    const { col: wc, row: wr } = wrapTunnel(newCol, newRow);
-    let score = 0;
-
-    const cell = maze[wr] && maze[wr][wc];
-    if (cell === DOT)   score += dotBonus;
-    if (cell === POWER) score += powerBonus;
-
-    // Ghost avoidance / scared-ghost chasing
-    for (const g of Object.values(state.ghosts)) {
-      const dist = manhattanDistance(wc, wr, g.col, g.row);
-      if (g.scared) {
-        if (dist < 6) score += (7 - dist) * chaseStrength;
-      } else {
-        if (dist < avoidRange) score -= (avoidRange - dist) * avoidStrength;
-      }
-    }
-
-    // Lookahead: scan up to 5 tiles forward for power pellets and ghost proximity
-    if (difficulty >= 8) {
-      const lookaheadDepth = difficulty >= 9 ? 5 : 3;
-      let lc = wc, lr = wr;
-      for (let step = 1; step <= lookaheadDepth; step++) {
-        const nlc = lc + dc, nlr = lr + dr;
-        if (!isPassableForPacman(nlc, nlr)) break;
-        ({ col: lc, row: lr } = wrapTunnel(nlc, nlr));
-
-        if (maze[lr] && maze[lr][lc] === POWER) {
-          score += (lookaheadDepth + 1 - step) * (difficulty - 7) * 4;
-          break;
-        }
-
-        // Penalise paths that walk toward a non-scared ghost
-        if (difficulty >= 9) {
-          for (const g of Object.values(state.ghosts)) {
-            if (!g.scared) {
-              const fwdDist = manhattanDistance(lc, lr, g.col, g.row);
-              if (fwdDist < 3) score -= (4 - fwdDist) * avoidStrength * 0.5;
-            }
-          }
-        }
-      }
-    }
-
-    // Dead-end penalty at 9-10: if destination is a corridor dead-end and a ghost is close
-    if (difficulty >= 9) {
-      const exits = countExits(wc, wr, OPPOSITE[dir]);
-      if (exits === 0) {
-        // True dead-end — extremely dangerous if a ghost is nearby
-        for (const g of Object.values(state.ghosts)) {
-          if (!g.scared) {
-            const dist = manhattanDistance(wc, wr, g.col, g.row);
-            if (dist < avoidRange) score -= avoidStrength * 8;
-          }
-        }
-      } else if (exits === 1) {
-        // Narrow corridor — penalise if ghost is close
-        for (const g of Object.values(state.ghosts)) {
-          if (!g.scared) {
-            const dist = manhattanDistance(wc, wr, g.col, g.row);
-            if (dist < 5) score -= avoidStrength * 3;
-          }
-        }
-      }
-    }
-
-    score += Math.random() * noise;
-
-    if (score > bestScore) {
-      bestScore = score;
-      best = dir;
-    }
+    const s = scoreMove(dir, pac, state, maze, difficulty);
+    if (s > bestScore) { bestScore = s; best = dir; }
   }
 
-  if (best) {
-    const { dc, dr } = DIRS[best];
-    pac.direction = best;
-    pac.col += dc;
-    pac.row += dr;
-    ({ col: pac.col, row: pac.row } = wrapTunnel(pac.col, pac.row));
-    eatDot(state, maze);
-  }
-}
+  const { dc, dr } = DIRS[best];
+  pac.direction = best;
+  pac.col += dc;
+  pac.row += dr;
+  ({ col: pac.col, row: pac.row } = wrapTunnel(pac.col, pac.row));
 
-function eatDot(state, maze) {
-  const pac = state.pacman;
-  if (state.dots[pac.row] && (state.dots[pac.row][pac.col] === DOT || state.dots[pac.row][pac.col] === POWER)) {
+  // Eat dot / power pellet
+  if (state.dots[pac.row]?.[pac.col] === DOT || state.dots[pac.row]?.[pac.col] === POWER) {
     const atePower = state.dots[pac.row][pac.col] === POWER;
     state.dots[pac.row][pac.col] = EMPTY;
     state.dotsRemaining--;
-
     if (atePower) {
       for (const ghost of Object.values(state.ghosts)) {
         ghost.scared = true;
@@ -176,11 +217,10 @@ function eatDot(state, maze) {
   }
 }
 
-// Move Pacman one tile (or two at difficulty 10).
 function movePacman(state, maze) {
   const difficulty = state.difficulty || 5;
   stepPacman(state, maze, difficulty);
-  // At difficulty 10 Pac-Man moves twice per tick — much harder to catch
+  // Difficulty 10: double speed
   if (difficulty >= 10) stepPacman(state, maze, difficulty);
 }
 
