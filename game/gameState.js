@@ -1,9 +1,7 @@
 const { freshDots, countDots } = require('./maze');
 
-// The 4 ghost characters, in classic order
 const GHOST_NAMES = ['Blinky', 'Pinky', 'Inky', 'Clyde'];
 
-// Starting positions for each ghost (col, row) inside the ghost house
 const GHOST_STARTS = {
   Blinky: { col: 13, row: 14 },
   Pinky:  { col: 13, row: 14 },
@@ -11,7 +9,6 @@ const GHOST_STARTS = {
   Clyde:  { col: 15, row: 14 },
 };
 
-// Pacman starts near the bottom center
 const PACMAN_START = { col: 13, row: 23 };
 
 function createGameState() {
@@ -28,32 +25,22 @@ function createGameState() {
       scaredTimer: 0,
     };
   }
-
   return {
-    pacman: {
-      col: PACMAN_START.col,
-      row: PACMAN_START.row,
-      direction: 'left',
-      nextDirection: 'left',
-    },
+    pacman: { col: PACMAN_START.col, row: PACMAN_START.row, direction: 'left', nextDirection: 'left' },
     ghosts,
     dots,
     dotsRemaining: countDots(dots),
-    phase: 'waiting',   // 'waiting' | 'playing' | 'gameover'
-    winner: null,       // 'ghosts' | 'pacman'
+    phase: 'waiting',
+    winner: null,
     playerCount: 0,
-    difficulty: 5,      // 1 (easy) – 10 (hard)
+    difficulty: 5,
   };
 }
 
-let state = createGameState();
-
-// Assign the preferred ghost to a player, or fall back to next available
-function addPlayer(socketId, preferredGhost) {
+function addPlayer(state, socketId, preferredGhost) {
   const order = preferredGhost && state.ghosts[preferredGhost]
     ? [preferredGhost, ...GHOST_NAMES.filter(n => n !== preferredGhost)]
     : GHOST_NAMES;
-
   for (const name of order) {
     if (state.ghosts[name].isCPU) {
       state.ghosts[name].playerId = socketId;
@@ -63,11 +50,10 @@ function addPlayer(socketId, preferredGhost) {
       return name;
     }
   }
-  return null; // game is full
+  return null;
 }
 
-// Free a ghost back to CPU when a player disconnects
-function removePlayer(socketId) {
+function removePlayer(state, socketId) {
   for (const name of GHOST_NAMES) {
     if (state.ghosts[name].playerId === socketId) {
       state.ghosts[name].playerId = null;
@@ -76,14 +62,10 @@ function removePlayer(socketId) {
       break;
     }
   }
-  // If everyone left, go back to waiting
-  if (state.playerCount === 0) {
-    state.phase = 'waiting';
-  }
+  if (state.playerCount === 0) state.phase = 'waiting';
 }
 
-// Store a player's intended direction so the game loop can apply it
-function applyInput(socketId, direction) {
+function applyInput(state, socketId, direction) {
   for (const name of GHOST_NAMES) {
     if (state.ghosts[name].playerId === socketId) {
       state.ghosts[name].nextDirection = direction;
@@ -92,14 +74,12 @@ function applyInput(socketId, direction) {
   }
 }
 
-// Reset everything for a new round
-function resetGame() {
+function resetGame(state) {
   const dots = freshDots();
   state.pacman = { col: PACMAN_START.col, row: PACMAN_START.row, direction: 'left', nextDirection: 'left' };
   state.dots = dots;
   state.dotsRemaining = countDots(dots);
   state.winner = null;
-
   for (const name of GHOST_NAMES) {
     state.ghosts[name].col = GHOST_STARTS[name].col;
     state.ghosts[name].row = GHOST_STARTS[name].row;
@@ -108,20 +88,10 @@ function resetGame() {
     state.ghosts[name].scared = false;
     state.ghosts[name].scaredTimer = 0;
   }
-
   state.phase = state.playerCount > 0 ? 'playing' : 'waiting';
 }
 
-function getState() {
-  return state;
-}
-
-function setDifficulty(level) {
-  state.difficulty = Math.max(1, Math.min(10, level));
-}
-
-// Send a ghost back to the ghost house after Pacman eats it
-function respawnGhost(name) {
+function respawnGhost(state, name) {
   state.ghosts[name].col = GHOST_STARTS[name].col;
   state.ghosts[name].row = GHOST_STARTS[name].row;
   state.ghosts[name].direction = 'left';
@@ -129,4 +99,8 @@ function respawnGhost(name) {
   state.ghosts[name].scaredTimer = 0;
 }
 
-module.exports = { getState, addPlayer, removePlayer, applyInput, resetGame, respawnGhost, setDifficulty, GHOST_NAMES };
+function setDifficulty(state, level) {
+  state.difficulty = Math.max(1, Math.min(10, level));
+}
+
+module.exports = { createGameState, addPlayer, removePlayer, applyInput, resetGame, respawnGhost, setDifficulty, GHOST_NAMES };

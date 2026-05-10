@@ -12,34 +12,55 @@
   <div id="lobby">
     <h1>Ghost Pacman</h1>
     <p>You and your friends are the ghosts!<br>Chase Pacman before he eats all the dots!</p>
+
     <input type="text" id="nameInput" placeholder="Your name" maxlength="16">
 
-    <p class="section-label">Choose your ghost:</p>
-    <div id="ghostPicker">
-      <div class="ghost-option selected" data-ghost="Blinky">
-        <canvas width="60" height="64"></canvas>
-        <span>Blinky</span>
-      </div>
-      <div class="ghost-option" data-ghost="Pinky">
-        <canvas width="60" height="64"></canvas>
-        <span>Pinky</span>
-      </div>
-      <div class="ghost-option" data-ghost="Inky">
-        <canvas width="60" height="64"></canvas>
-        <span>Inky</span>
-      </div>
-      <div class="ghost-option" data-ghost="Clyde">
-        <canvas width="60" height="64"></canvas>
-        <span>Clyde</span>
+    <!-- Step 1: create or join -->
+    <div id="roomSelect">
+      <button id="createRoomBtn">Create New Lobby</button>
+      <div class="or-divider">— or —</div>
+      <div class="join-row">
+        <input type="text" id="roomCodeInput" placeholder="Room code" maxlength="4">
+        <button id="joinRoomBtn">Find Lobby</button>
       </div>
     </div>
 
-    <div class="difficulty-row">
-      <label for="difficultyInput">Pacman difficulty: <span id="difficultyValue">5</span></label>
-      <input type="range" id="difficultyInput" min="1" max="10" value="5">
-      <span class="diff-hint">1 = easy &nbsp; 10 = hard</span>
+    <!-- Step 2: ghost picker + settings (shown after room is found/created) -->
+    <div id="roomInfo" style="display:none;">
+      <div id="roomCodeDisplay">
+        Room code: <span id="roomCodeText"></span>
+        <button id="copyCodeBtn" title="Copy code">&#128203;</button>
+      </div>
+
+      <p class="section-label">Choose your ghost:</p>
+      <div id="ghostPicker">
+        <div class="ghost-option selected" data-ghost="Blinky">
+          <canvas width="60" height="64"></canvas>
+          <span>Blinky</span>
+        </div>
+        <div class="ghost-option" data-ghost="Pinky">
+          <canvas width="60" height="64"></canvas>
+          <span>Pinky</span>
+        </div>
+        <div class="ghost-option" data-ghost="Inky">
+          <canvas width="60" height="64"></canvas>
+          <span>Inky</span>
+        </div>
+        <div class="ghost-option" data-ghost="Clyde">
+          <canvas width="60" height="64"></canvas>
+          <span>Clyde</span>
+        </div>
+      </div>
+
+      <div class="difficulty-row">
+        <label for="difficultyInput">Pacman difficulty: <span id="difficultyValue">5</span></label>
+        <input type="range" id="difficultyInput" min="1" max="10" value="5">
+        <span class="diff-hint">1 = easy &nbsp; 10 = hard</span>
+      </div>
+
+      <button id="joinBtn">Play!</button>
     </div>
-    <button id="joinBtn">Join Game</button>
+
     <p id="lobbyMsg"></p>
   </div>
 
@@ -49,6 +70,7 @@
       <span id="playerLabel">You are: </span>
       <span id="dotsLabel">Dots left: </span>
       <span id="playersLabel">Players online: 0/4</span>
+      <span id="roomCodeLabel">Room: —</span>
       <span id="difficultyBar">
         Pacman: <input type="range" id="difficultyGame" min="1" max="10" value="5">
         <span id="difficultyGameValue">5</span>
@@ -61,7 +83,6 @@
     </div>
   </div>
 
-  <!-- Socket.io is served automatically by the server -->
   <script src="/socket.io/socket.io.js"></script>
   <script src="js/constants.js"></script>
   <script src="js/renderer.js"></script>

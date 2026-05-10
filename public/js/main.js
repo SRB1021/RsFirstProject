@@ -1,23 +1,32 @@
 const socket = io();
-let myGhostName = null;
-let currentState  = null;
-let previousState = null;
+let myGhostName    = null;
+let currentRoomCode = null;
+let currentState   = null;
+let previousState  = null;
 let lastUpdateTime = 0;
-const TICK_MS = 150; // must match server interval
+const TICK_MS = 150;
 
-const lobby      = document.getElementById('lobby');
-const gameScreen = document.getElementById('gameScreen');
-const canvas     = document.getElementById('gameCanvas');
-const joinBtn    = document.getElementById('joinBtn');
-const nameInput  = document.getElementById('nameInput');
-const lobbyMsg   = document.getElementById('lobbyMsg');
-const playerLabel  = document.getElementById('playerLabel');
-const dotsLabel    = document.getElementById('dotsLabel');
-const playersLabel = document.getElementById('playersLabel');
-const overlay      = document.getElementById('overlay');
-const overlayTitle = document.getElementById('overlayTitle');
-const restartBtn   = document.getElementById('restartBtn');
-
+// DOM refs
+const lobby          = document.getElementById('lobby');
+const gameScreen     = document.getElementById('gameScreen');
+const canvas         = document.getElementById('gameCanvas');
+const nameInput      = document.getElementById('nameInput');
+const lobbyMsg       = document.getElementById('lobbyMsg');
+const roomSelect     = document.getElementById('roomSelect');
+const roomInfo       = document.getElementById('roomInfo');
+const roomCodeInput  = document.getElementById('roomCodeInput');
+const createRoomBtn  = document.getElementById('createRoomBtn');
+const joinRoomBtn    = document.getElementById('joinRoomBtn');
+const roomCodeText   = document.getElementById('roomCodeText');
+const copyCodeBtn    = document.getElementById('copyCodeBtn');
+const joinBtn        = document.getElementById('joinBtn');
+const playerLabel    = document.getElementById('playerLabel');
+const dotsLabel      = document.getElementById('dotsLabel');
+const playersLabel   = document.getElementById('playersLabel');
+const roomCodeLabel  = document.getElementById('roomCodeLabel');
+const overlay        = document.getElementById('overlay');
+const overlayTitle   = document.getElementById('overlayTitle');
+const restartBtn     = document.getElementById('restartBtn');
 const difficultyInput     = document.getElementById('difficultyInput');
 const difficultyValue     = document.getElementById('difficultyValue');
 const difficultyGame      = document.getElementById('difficultyGame');
@@ -25,19 +34,16 @@ const difficultyGameValue = document.getElementById('difficultyGameValue');
 
 // --- Ghost picker ---
 
-let selectedGhost = 'Blinky'; // default selection
+let selectedGhost = 'Blinky';
 
-function drawGhostIcon(canvas, color, dimmed) {
-  const ctx = canvas.getContext('2d');
-  const w = canvas.width;
-  const h = canvas.height - 14; // leave room for name label below
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
+function drawGhostIcon(cvs, color, dimmed) {
+  const ctx = cvs.getContext('2d');
+  const w = cvs.width;
+  const h = cvs.height - 14;
+  ctx.clearRect(0, 0, cvs.width, cvs.height);
   ctx.globalAlpha = dimmed ? 0.4 : 1;
 
-  const cx = w / 2;
-  const cy = h / 2;
-  const r  = Math.min(w, h) / 2 - 3;
+  const cx = w / 2, cy = h / 2, r = Math.min(w, h) / 2 - 3;
 
   ctx.fillStyle = color;
   ctx.shadowColor = color;
@@ -45,8 +51,7 @@ function drawGhostIcon(canvas, color, dimmed) {
   ctx.beginPath();
   ctx.arc(cx, cy - 1, r, Math.PI, 0, false);
 
-  const skirtY = cy - 1 + r;
-  const ww = r / 2;
+  const skirtY = cy - 1 + r, ww = r / 2;
   ctx.lineTo(cx + r, skirtY);
   ctx.quadraticCurveTo(cx + ww * 0.75, skirtY + 5, cx + ww * 0.25, skirtY);
   ctx.quadraticCurveTo(cx - ww * 0.25, skirtY - 5, cx - ww * 0.75, skirtY);
@@ -74,28 +79,22 @@ function drawGhostIcon(canvas, color, dimmed) {
 function renderGhostPicker(takenGhosts = []) {
   document.querySelectorAll('.ghost-option').forEach(el => {
     const name  = el.dataset.ghost;
-    const color = GHOST_COLORS[name];
     const taken = takenGhosts.includes(name);
-    const cvs   = el.querySelector('canvas');
-
     el.classList.toggle('taken', taken);
     el.classList.toggle('selected', name === selectedGhost && !taken);
-
-    drawGhostIcon(cvs, color, taken);
-
-    // If our selection just got taken, pick first available
+    drawGhostIcon(el.querySelector('canvas'), GHOST_COLORS[name], taken);
     if (taken && name === selectedGhost) {
-      const firstFree = document.querySelector('.ghost-option:not(.taken)');
-      if (firstFree) setSelectedGhost(firstFree.dataset.ghost);
+      const first = document.querySelector('.ghost-option:not(.taken)');
+      if (first) setSelectedGhost(first.dataset.ghost);
     }
   });
 }
 
 function setSelectedGhost(name) {
   selectedGhost = name;
-  document.querySelectorAll('.ghost-option').forEach(el => {
-    el.classList.toggle('selected', el.dataset.ghost === name);
-  });
+  document.querySelectorAll('.ghost-option').forEach(el =>
+    el.classList.toggle('selected', el.dataset.ghost === name)
+  );
 }
 
 document.querySelectorAll('.ghost-option').forEach(el => {
@@ -104,8 +103,73 @@ document.querySelectorAll('.ghost-option').forEach(el => {
   });
 });
 
-// Draw on page load (no taken ghosts yet)
-renderGhostPicker();
+renderGhostPicker(); // draw icons on page load
+
+// --- Utility ---
+
+function showRoomPanel(code, takenGhosts = []) {
+  currentRoomCode = code;
+  roomCodeText.textContent = code;
+  roomSelect.style.display = 'none';
+  roomInfo.style.display   = 'flex';
+  lobbyMsg.textContent     = '';
+  renderGhostPicker(takenGhosts);
+}
+
+function copyCode(code) {
+  navigator.clipboard.writeText(code).catch(() => {});
+  copyCodeBtn.textContent = '✓';
+  setTimeout(() => { copyCodeBtn.innerHTML = '&#128203;'; }, 1500);
+}
+
+// --- Room selection handlers ---
+
+createRoomBtn.addEventListener('click', () => {
+  socket.emit('create_room');
+  createRoomBtn.disabled = true;
+  lobbyMsg.textContent = 'Creating lobby...';
+});
+
+joinRoomBtn.addEventListener('click', () => {
+  const code = roomCodeInput.value.trim().toUpperCase();
+  if (code.length !== 4) {
+    lobbyMsg.textContent = 'Enter a 4-letter room code.';
+    return;
+  }
+  socket.emit('check_room', { code });
+  joinRoomBtn.disabled = true;
+  lobbyMsg.textContent = 'Looking for lobby...';
+});
+
+roomCodeInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') joinRoomBtn.click();
+});
+
+roomCodeInput.addEventListener('input', () => {
+  roomCodeInput.value = roomCodeInput.value.toUpperCase();
+});
+
+copyCodeBtn.addEventListener('click', () => copyCode(currentRoomCode));
+roomCodeLabel.addEventListener('click', () => currentRoomCode && copyCode(currentRoomCode));
+
+// --- Join game handler ---
+
+joinBtn.addEventListener('click', () => {
+  if (!currentRoomCode) return;
+  socket.emit('join_game', {
+    name: nameInput.value.trim() || 'Ghost Player',
+    roomCode: currentRoomCode,
+    preferredGhost: selectedGhost,
+    difficulty: Number(difficultyInput.value),
+  });
+  joinBtn.disabled = true;
+  lobbyMsg.textContent = 'Joining game...';
+});
+
+restartBtn.addEventListener('click', () => {
+  socket.emit('request_restart');
+  overlay.style.display = 'none';
+});
 
 // --- Difficulty sliders ---
 
@@ -118,38 +182,34 @@ difficultyGame.addEventListener('input', () => {
   socket.emit('set_difficulty', { difficulty: Number(difficultyGame.value) });
 });
 
-// --- Button handlers ---
-
-joinBtn.addEventListener('click', () => {
-  const name = nameInput.value.trim() || 'Ghost Player';
-  socket.emit('join_game', {
-    name,
-    difficulty: Number(difficultyInput.value),
-    preferredGhost: selectedGhost,
-  });
-  joinBtn.disabled = true;
-  lobbyMsg.textContent = 'Joining game...';
-});
-
-restartBtn.addEventListener('click', () => {
-  socket.emit('request_restart');
-  overlay.style.display = 'none';
-});
-
-nameInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') joinBtn.click();
-});
-
 // --- Socket events from server ---
+
+socket.on('room_created', ({ code }) => {
+  createRoomBtn.disabled = false;
+  showRoomPanel(code);
+});
+
+socket.on('room_status', ({ code, takenGhosts }) => {
+  joinRoomBtn.disabled = false;
+  showRoomPanel(code, takenGhosts);
+});
+
+socket.on('room_not_found', () => {
+  createRoomBtn.disabled = false;
+  joinRoomBtn.disabled = false;
+  lobbyMsg.textContent = 'Room not found. Check the code and try again.';
+});
 
 socket.on('lobby_status', ({ takenGhosts }) => {
   renderGhostPicker(takenGhosts);
 });
 
-socket.on('game_joined', (data) => {
-  myGhostName = data.ghostName;
-  playerLabel.textContent = `You are: ${myGhostName}`;
-  lobby.style.display = 'none';
+socket.on('game_joined', ({ ghostName, roomCode }) => {
+  myGhostName = ghostName;
+  currentRoomCode = roomCode;
+  playerLabel.textContent  = `You are: ${ghostName}`;
+  roomCodeLabel.textContent = `Room: ${roomCode}`;
+  lobby.style.display      = 'none';
   gameScreen.style.display = 'flex';
 
   difficultyGame.value = difficultyInput.value;
@@ -163,13 +223,13 @@ socket.on('game_joined', (data) => {
 });
 
 socket.on('game_full', () => {
-  lobbyMsg.textContent = 'Sorry, the game is full! (4/4 players)';
   joinBtn.disabled = false;
+  lobbyMsg.textContent = 'Sorry, that lobby is full! (4/4 players)';
 });
 
 socket.on('game_state', (state) => {
-  previousState = currentState;
-  currentState  = state;
+  previousState  = currentState;
+  currentState   = state;
   lastUpdateTime = performance.now();
 
   if (state.difficulty !== undefined && Number(difficultyGame.value) !== state.difficulty) {
@@ -179,7 +239,7 @@ socket.on('game_state', (state) => {
 
   const humanCount = Object.values(state.ghosts).filter(g => !g.isCPU).length;
   dotsLabel.textContent    = `Dots left: ${state.dotsRemaining}`;
-  playersLabel.textContent = `Players online: ${humanCount}/4`;
+  playersLabel.textContent = `Players: ${humanCount}/4`;
 
   if (state.phase === 'waiting') {
     const ctx = canvas.getContext('2d');
@@ -192,8 +252,8 @@ socket.on('game_state', (state) => {
   }
 });
 
-socket.on('game_over', (data) => {
-  overlayTitle.textContent = data.winner === 'ghosts'
+socket.on('game_over', ({ winner }) => {
+  overlayTitle.textContent = winner === 'ghosts'
     ? 'Ghosts Win! You caught Pacman!'
     : 'Pacman Wins! He ate all the dots!';
   overlay.style.display = 'flex';
@@ -205,10 +265,10 @@ socket.on('game_restarted', () => {
 });
 
 // --- 60fps render loop ---
+
 function renderLoop() {
   if (currentState && currentState.phase === 'playing') {
-    const elapsed = performance.now() - lastUpdateTime;
-    const alpha = Math.min(elapsed / TICK_MS, 1);
+    const alpha = Math.min((performance.now() - lastUpdateTime) / TICK_MS, 1);
     draw(canvas, currentState, previousState, myGhostName, alpha);
   }
   requestAnimationFrame(renderLoop);
