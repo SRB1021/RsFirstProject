@@ -41,6 +41,10 @@ const MAZE_TEMPLATE = [
   [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
 ];
 
+// The one row where walking off the left/right edge warps to the other side
+const TUNNEL_ROW = 14;
+const MAZE_WIDTH = 28;
+
 function isWall(col, row) {
   if (row < 0 || row >= MAZE_TEMPLATE.length) return true;
   if (col < 0 || col >= MAZE_TEMPLATE[0].length) return true;
@@ -48,6 +52,8 @@ function isWall(col, row) {
 }
 
 function isPassable(col, row) {
+  // Allow stepping one tile off either edge on the tunnel row
+  if (row === TUNNEL_ROW && (col === -1 || col === MAZE_WIDTH)) return true;
   if (row < 0 || row >= MAZE_TEMPLATE.length) return false;
   if (col < 0 || col >= MAZE_TEMPLATE[0].length) return false;
   return MAZE_TEMPLATE[row][col] !== WALL;
@@ -55,10 +61,20 @@ function isPassable(col, row) {
 
 // Same as isPassable but also blocks the ghost house — used by Pacman AI
 function isPassableForPacman(col, row) {
+  if (row === TUNNEL_ROW && (col === -1 || col === MAZE_WIDTH)) return true;
   if (row < 0 || row >= MAZE_TEMPLATE.length) return false;
   if (col < 0 || col >= MAZE_TEMPLATE[0].length) return false;
   const tile = MAZE_TEMPLATE[row][col];
   return tile !== WALL && tile !== GHOST_HOME;
+}
+
+// After a move, wrap position if the entity walked through a tunnel exit
+function wrapTunnel(col, row) {
+  if (row === TUNNEL_ROW) {
+    if (col < 0)          return { col: MAZE_WIDTH - 1, row };
+    if (col >= MAZE_WIDTH) return { col: 0, row };
+  }
+  return { col, row };
 }
 
 // Return a fresh copy of the maze dots (so each game gets a clean slate)
@@ -76,4 +92,4 @@ function countDots(dots) {
   return count;
 }
 
-module.exports = { EMPTY, WALL, DOT, POWER, GHOST_HOME, MAZE_TEMPLATE, isWall, isPassable, isPassableForPacman, freshDots, countDots };
+module.exports = { EMPTY, WALL, DOT, POWER, GHOST_HOME, MAZE_TEMPLATE, isWall, isPassable, isPassableForPacman, wrapTunnel, freshDots, countDots };

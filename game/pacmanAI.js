@@ -1,4 +1,4 @@
-const { isPassableForPacman, DOT, POWER, EMPTY } = require('./maze');
+const { isPassableForPacman, wrapTunnel, DOT, POWER, EMPTY } = require('./maze');
 
 const DIRS = {
   left:  { dc: -1, dr:  0 },
@@ -79,6 +79,7 @@ function movePacman(state, maze) {
     pac.direction = best;
     pac.col += dc;
     pac.row += dr;
+    ({ col: pac.col, row: pac.row } = wrapTunnel(pac.col, pac.row));
 
     if (state.dots[pac.row] && (state.dots[pac.row][pac.col] === DOT || state.dots[pac.row][pac.col] === POWER)) {
       const atePower = state.dots[pac.row][pac.col] === POWER;

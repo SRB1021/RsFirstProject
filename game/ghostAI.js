@@ -1,4 +1,4 @@
-const { isPassable } = require('./maze');
+const { isPassable, wrapTunnel } = require('./maze');
 
 const DIRS = {
   left:  { dc: -1, dr:  0 },
@@ -44,6 +44,7 @@ function moveTowardTarget(ghost, targetCol, targetRow) {
     ghost.direction = best;
     ghost.col += dc;
     ghost.row += dr;
+    ({ col: ghost.col, row: ghost.row } = wrapTunnel(ghost.col, ghost.row));
   }
 }
 
@@ -78,6 +79,7 @@ function moveAwayFromTarget(ghost, targetCol, targetRow) {
     ghost.direction = best;
     ghost.col += dc;
     ghost.row += dr;
+    ({ col: ghost.col, row: ghost.row } = wrapTunnel(ghost.col, ghost.row));
   }
 }
 
@@ -136,8 +138,9 @@ function moveHumanGhost(ghost) {
 
   if (isPassable(newCol, newRow)) {
     ghost.direction = ghost.nextDirection;
-    ghost.col = newCol;
-    ghost.row = newRow;
+    const wrapped = wrapTunnel(newCol, newRow);
+    ghost.col = wrapped.col;
+    ghost.row = wrapped.row;
   }
   // If blocked, keep trying same direction next tick (feels responsive)
 }
