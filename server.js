@@ -17,8 +17,18 @@ const PORT = process.env.PORT || 3000;
 app.use(express.static(path.join(__dirname, 'public')));
 
 // When a browser connects via Socket.io
+function takenGhosts() {
+  const state = getState();
+  return Object.entries(state.ghosts)
+    .filter(([, g]) => !g.isCPU)
+    .map(([name]) => name);
+}
+
 io.on('connection', (socket) => {
   console.log(`Player connected: ${socket.id}`);
+
+  // Tell this new browser which ghosts are already taken
+  socket.emit('lobby_status', { takenGhosts: takenGhosts() });
 
   // Player wants to join the game
   socket.on('join_game', (data) => {
@@ -29,7 +39,7 @@ io.on('connection', (socket) => {
 
     if (data.difficulty) setDifficulty(data.difficulty);
 
-    const ghostName = addPlayer(socket.id);
+    const ghostName = addPlayer(socket.id, data.preferredGhost);
     if (!ghostName) {
       socket.emit('game_full');
       return;
@@ -37,6 +47,8 @@ io.on('connection', (socket) => {
 
     console.log(`${data.name || 'Anonymous'} is now controlling ${ghostName}`);
     socket.emit('game_joined', { ghostName, playerId: socket.id });
+    // Let everyone in the lobby know this ghost is now taken
+    io.emit('lobby_status', { takenGhosts: takenGhosts() });
   });
 
   // Player pressed an arrow key
@@ -53,12 +65,14 @@ io.on('connection', (socket) => {
   socket.on('request_restart', () => {
     resetGame();
     io.emit('game_restarted');
+    io.emit('lobby_status', { takenGhosts: [] });
   });
 
   // Player disconnected (closed tab, lost internet, etc.)
   socket.on('disconnect', () => {
     console.log(`Player disconnected: ${socket.id}`);
     removePlayer(socket.id);
+    io.emit('lobby_status', { takenGhosts: takenGhosts() });
   });
 });
 

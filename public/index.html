@@ -13,7 +13,27 @@
     <h1>Ghost Pacman</h1>
     <p>You and your friends are the ghosts!<br>Chase Pacman before he eats all the dots!</p>
     <input type="text" id="nameInput" placeholder="Your name" maxlength="16">
-    <br>
+
+    <p class="section-label">Choose your ghost:</p>
+    <div id="ghostPicker">
+      <div class="ghost-option selected" data-ghost="Blinky">
+        <canvas width="60" height="64"></canvas>
+        <span>Blinky</span>
+      </div>
+      <div class="ghost-option" data-ghost="Pinky">
+        <canvas width="60" height="64"></canvas>
+        <span>Pinky</span>
+      </div>
+      <div class="ghost-option" data-ghost="Inky">
+        <canvas width="60" height="64"></canvas>
+        <span>Inky</span>
+      </div>
+      <div class="ghost-option" data-ghost="Clyde">
+        <canvas width="60" height="64"></canvas>
+        <span>Clyde</span>
+      </div>
+    </div>
+
     <div class="difficulty-row">
       <label for="difficultyInput">Pacman difficulty: <span id="difficultyValue">5</span></label>
       <input type="range" id="difficultyInput" min="1" max="10" value="5">

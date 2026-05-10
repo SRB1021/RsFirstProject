@@ -48,9 +48,13 @@ function createGameState() {
 
 let state = createGameState();
 
-// Assign the next available ghost to a newly connected player
-function addPlayer(socketId) {
-  for (const name of GHOST_NAMES) {
+// Assign the preferred ghost to a player, or fall back to next available
+function addPlayer(socketId, preferredGhost) {
+  const order = preferredGhost && state.ghosts[preferredGhost]
+    ? [preferredGhost, ...GHOST_NAMES.filter(n => n !== preferredGhost)]
+    : GHOST_NAMES;
+
+  for (const name of order) {
     if (state.ghosts[name].isCPU) {
       state.ghosts[name].playerId = socketId;
       state.ghosts[name].isCPU = false;

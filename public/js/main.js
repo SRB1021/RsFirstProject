@@ -23,12 +23,96 @@ const difficultyValue     = document.getElementById('difficultyValue');
 const difficultyGame      = document.getElementById('difficultyGame');
 const difficultyGameValue = document.getElementById('difficultyGameValue');
 
-// Keep lobby slider label in sync
+// --- Ghost picker ---
+
+let selectedGhost = 'Blinky'; // default selection
+
+function drawGhostIcon(canvas, color, dimmed) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width;
+  const h = canvas.height - 14; // leave room for name label below
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  ctx.globalAlpha = dimmed ? 0.4 : 1;
+
+  const cx = w / 2;
+  const cy = h / 2;
+  const r  = Math.min(w, h) / 2 - 3;
+
+  ctx.fillStyle = color;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = dimmed ? 0 : 8;
+  ctx.beginPath();
+  ctx.arc(cx, cy - 1, r, Math.PI, 0, false);
+
+  const skirtY = cy - 1 + r;
+  const ww = r / 2;
+  ctx.lineTo(cx + r, skirtY);
+  ctx.quadraticCurveTo(cx + ww * 0.75, skirtY + 5, cx + ww * 0.25, skirtY);
+  ctx.quadraticCurveTo(cx - ww * 0.25, skirtY - 5, cx - ww * 0.75, skirtY);
+  ctx.quadraticCurveTo(cx - ww * 1.25, skirtY + 5, cx - r, skirtY);
+  ctx.lineTo(cx - r, cy - 1);
+  ctx.closePath();
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(cx - r * 0.35, cy - r * 0.2, r * 0.28, 0, Math.PI * 2);
+  ctx.arc(cx + r * 0.35, cy - r * 0.2, r * 0.28, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#00f';
+  ctx.beginPath();
+  ctx.arc(cx - r * 0.35, cy - r * 0.2, r * 0.14, 0, Math.PI * 2);
+  ctx.arc(cx + r * 0.35, cy - r * 0.2, r * 0.14, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.globalAlpha = 1;
+}
+
+function renderGhostPicker(takenGhosts = []) {
+  document.querySelectorAll('.ghost-option').forEach(el => {
+    const name  = el.dataset.ghost;
+    const color = GHOST_COLORS[name];
+    const taken = takenGhosts.includes(name);
+    const cvs   = el.querySelector('canvas');
+
+    el.classList.toggle('taken', taken);
+    el.classList.toggle('selected', name === selectedGhost && !taken);
+
+    drawGhostIcon(cvs, color, taken);
+
+    // If our selection just got taken, pick first available
+    if (taken && name === selectedGhost) {
+      const firstFree = document.querySelector('.ghost-option:not(.taken)');
+      if (firstFree) setSelectedGhost(firstFree.dataset.ghost);
+    }
+  });
+}
+
+function setSelectedGhost(name) {
+  selectedGhost = name;
+  document.querySelectorAll('.ghost-option').forEach(el => {
+    el.classList.toggle('selected', el.dataset.ghost === name);
+  });
+}
+
+document.querySelectorAll('.ghost-option').forEach(el => {
+  el.addEventListener('click', () => {
+    if (!el.classList.contains('taken')) setSelectedGhost(el.dataset.ghost);
+  });
+});
+
+// Draw on page load (no taken ghosts yet)
+renderGhostPicker();
+
+// --- Difficulty sliders ---
+
 difficultyInput.addEventListener('input', () => {
   difficultyValue.textContent = difficultyInput.value;
 });
 
-// In-game slider: send new difficulty to server immediately
 difficultyGame.addEventListener('input', () => {
   difficultyGameValue.textContent = difficultyGame.value;
   socket.emit('set_difficulty', { difficulty: Number(difficultyGame.value) });
@@ -38,7 +122,11 @@ difficultyGame.addEventListener('input', () => {
 
 joinBtn.addEventListener('click', () => {
   const name = nameInput.value.trim() || 'Ghost Player';
-  socket.emit('join_game', { name, difficulty: Number(difficultyInput.value) });
+  socket.emit('join_game', {
+    name,
+    difficulty: Number(difficultyInput.value),
+    preferredGhost: selectedGhost,
+  });
   joinBtn.disabled = true;
   lobbyMsg.textContent = 'Joining game...';
 });
@@ -54,22 +142,24 @@ nameInput.addEventListener('keydown', (e) => {
 
 // --- Socket events from server ---
 
+socket.on('lobby_status', ({ takenGhosts }) => {
+  renderGhostPicker(takenGhosts);
+});
+
 socket.on('game_joined', (data) => {
   myGhostName = data.ghostName;
   playerLabel.textContent = `You are: ${myGhostName}`;
   lobby.style.display = 'none';
   gameScreen.style.display = 'flex';
 
-  // Sync in-game slider to whatever difficulty is currently set
   difficultyGame.value = difficultyInput.value;
   difficultyGameValue.textContent = difficultyInput.value;
 
-  // Set canvas size once so we never resize mid-frame (resizing clears the canvas)
   canvas.width  = MAZE_COLS * TILE_SIZE;
   canvas.height = MAZE_ROWS * TILE_SIZE;
 
   setupInput(socket);
-  requestAnimationFrame(renderLoop); // start the smooth 60fps loop
+  requestAnimationFrame(renderLoop);
 });
 
 socket.on('game_full', () => {
@@ -82,14 +172,11 @@ socket.on('game_state', (state) => {
   currentState  = state;
   lastUpdateTime = performance.now();
 
-  // Keep in-game slider in sync with server-side difficulty
-  // (so late joiners see the current value)
   if (state.difficulty !== undefined && Number(difficultyGame.value) !== state.difficulty) {
     difficultyGame.value = state.difficulty;
     difficultyGameValue.textContent = state.difficulty;
   }
 
-  // Update status bar
   const humanCount = Object.values(state.ghosts).filter(g => !g.isCPU).length;
   dotsLabel.textContent    = `Dots left: ${state.dotsRemaining}`;
   playersLabel.textContent = `Players online: ${humanCount}/4`;
@@ -118,7 +205,6 @@ socket.on('game_restarted', () => {
 });
 
 // --- 60fps render loop ---
-// alpha goes 0→1 between server ticks, so characters glide smoothly
 function renderLoop() {
   if (currentState && currentState.phase === 'playing') {
     const elapsed = performance.now() - lastUpdateTime;
