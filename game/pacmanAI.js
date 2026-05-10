@@ -69,11 +69,11 @@ function scoreMove(dir, pac, state, maze, difficulty) {
 
   // --- Difficulty knobs ---
   const bfsDepth      = difficulty >= 9 ? 20 : difficulty >= 7 ? 14 : difficulty >= 4 ? 9 : 5;
-  const avoidRange    = difficulty >= 10 ? 10 : difficulty >= 9 ? 8 : difficulty >= 7 ? 6 : 4;
-  const avoidStrength = difficulty >= 10 ? 40 : difficulty >= 9 ? 25 : difficulty >= 7 ? 12 : 1 + difficulty * 0.6;
+  const avoidRange    = difficulty >= 10 ? 8  : difficulty >= 9 ? 7  : difficulty >= 7 ? 6 : 4;
+  const avoidStrength = difficulty >= 10 ? 22 : difficulty >= 9 ? 18 : difficulty >= 7 ? 12 : 1 + difficulty * 0.6;
   const chaseStrength = difficulty * 2.5;
-  const dotBonus      = 6 + difficulty;            // 7 … 16
-  const powerBonus    = difficulty >= 10 ? 90 : difficulty >= 9 ? 60 : 8 + difficulty * 1.5;
+  const dotBonus      = difficulty >= 10 ? 24 : 6 + difficulty;   // high dot priority = faster win
+  const powerBonus    = difficulty >= 10 ? 55 : difficulty >= 9 ? 45 : 8 + difficulty * 1.5;
   const noise         = difficulty >= 9 ? 0 : difficulty >= 7 ? 2 : (11 - difficulty) * 2;
   const ghostPredictTicks = difficulty >= 8 ? 3 : difficulty >= 5 ? 2 : 0;
 
@@ -219,7 +219,16 @@ function stepPacman(state, maze, difficulty) {
 function movePacman(state, maze) {
   const difficulty = state.difficulty || 5;
   stepPacman(state, maze, difficulty);
-  if (difficulty >= 10) stepPacman(state, maze, difficulty);
+
+  // At difficulty 10: danger burst — take a second step only when a ghost is close.
+  // This lets Pac-Man escape corners without being uncatchable the whole game.
+  if (difficulty >= 10) {
+    const pac = state.pacman;
+    const inDanger = Object.values(state.ghosts).some(g =>
+      !g.scared && manhattanDistance(pac.col, pac.row, g.col, g.row) <= 5
+    );
+    if (inDanger) stepPacman(state, maze, difficulty);
+  }
 }
 
 module.exports = { movePacman, stepPacman };
