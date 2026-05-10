@@ -36,9 +36,10 @@ function moveTowardTarget(ghost, ghostName, targetCol, targetRow, occupied) {
     const nc = ghost.col + dc;
     const nr = ghost.row + dr;
     if (!isPassable(nc, nr)) return false;
-    // Allow stacking inside the ghost house (respawn zone)
-    if (isGhostHome(nc, nr)) return true;
-    return !occupied.has(`${nc},${nr}`);
+    // Check occupation against the post-wrap position so tunnel exits are handled correctly
+    const { col: wc, row: wr } = wrapTunnel(nc, nr);
+    if (isGhostHome(wc, wr)) return true;
+    return !occupied.has(`${wc},${wr}`);
   });
 
   if (available.length === 0) return;
@@ -76,8 +77,9 @@ function moveAwayFromTarget(ghost, ghostName, targetCol, targetRow, occupied) {
     const nc = ghost.col + dc;
     const nr = ghost.row + dr;
     if (!isPassable(nc, nr)) return false;
-    if (isGhostHome(nc, nr)) return true;
-    return !occupied.has(`${nc},${nr}`);
+    const { col: wc, row: wr } = wrapTunnel(nc, nr);
+    if (isGhostHome(wc, wr)) return true;
+    return !occupied.has(`${wc},${wr}`);
   });
 
   if (available.length === 0) return;
@@ -162,17 +164,19 @@ function moveHumanGhost(ghost, ghostName, allGhosts) {
 
   if (!isPassable(newCol, newRow)) return;
 
-  // Block moving onto another ghost's tile (allow stacking only in ghost house)
-  if (!isGhostHome(newCol, newRow)) {
+  // Apply tunnel wrapping BEFORE the occupation check so the wrapped destination
+  // is compared against other ghosts' actual positions (fixes tunnel stacking bug)
+  const { col: destCol, row: destRow } = wrapTunnel(newCol, newRow);
+
+  if (!isGhostHome(destCol, destRow)) {
     for (const [name, other] of Object.entries(allGhosts)) {
-      if (name !== ghostName && other.col === newCol && other.row === newRow) return;
+      if (name !== ghostName && other.col === destCol && other.row === destRow) return;
     }
   }
 
   ghost.direction = ghost.nextDirection;
-  const wrapped = wrapTunnel(newCol, newRow);
-  ghost.col = wrapped.col;
-  ghost.row = wrapped.row;
+  ghost.col = destCol;
+  ghost.row = destRow;
 }
 
 module.exports = { moveCPUGhosts, moveHumanGhost };
