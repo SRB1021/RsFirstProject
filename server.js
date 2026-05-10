@@ -78,7 +78,9 @@ io.on('connection', (socket) => {
 
     const { state } = room;
     if (state.phase === 'gameover') resetGame(state);
-    if (difficulty) setDifficulty(state, difficulty);
+
+    const isCreator = room.creatorId === socket.id;
+    if (isCreator && difficulty) setDifficulty(state, difficulty);
 
     const ghostName = addPlayer(state, socket.id, preferredGhost);
     if (!ghostName) {
@@ -89,7 +91,6 @@ io.on('connection', (socket) => {
     socketRoom.set(socket.id, code);
     socket.join(code);
 
-    const isCreator = room.creatorId === socket.id;
     console.log(`${name || 'Anonymous'} joined room ${code} as ${ghostName}`);
     socket.emit('game_joined', { ghostName, roomCode: code, isCreator });
     io.to(code).emit('lobby_status', { takenGhosts: getTakenGhosts(state) });

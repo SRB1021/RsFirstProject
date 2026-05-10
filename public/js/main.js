@@ -32,6 +32,7 @@ const difficultyInput     = document.getElementById('difficultyInput');
 const difficultyValue     = document.getElementById('difficultyValue');
 const difficultyGame      = document.getElementById('difficultyGame');
 const difficultyGameValue = document.getElementById('difficultyGameValue');
+const difficultyLock      = document.getElementById('difficultyLock');
 
 // --- Ghost picker ---
 
@@ -215,7 +216,7 @@ socket.on('game_joined', ({ ghostName, roomCode, isCreator }) => {
   gameScreen.style.display = 'flex';
 
   difficultyGame.disabled = !isRoomCreator;
-  difficultyGame.title = isRoomCreator ? '' : 'Only the lobby creator can change difficulty';
+  difficultyLock.style.display = isRoomCreator ? 'none' : 'inline';
 
   difficultyGame.value = difficultyInput.value;
   difficultyGameValue.textContent = difficultyInput.value;
