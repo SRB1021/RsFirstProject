@@ -37,11 +37,15 @@ function movePacman(state, maze) {
   const nonReverse = available.filter(dir => dir !== OPPOSITE[pac.direction]);
   const choices = nonReverse.length > 0 ? nonReverse : available;
 
-  // How strongly Pacman avoids/chases ghosts scales with difficulty
-  const avoidStrength = difficulty * 1.2;   // 1→1.2  5→6  10→12
-  const chaseStrength = difficulty * 2;     // 1→2    5→10 10→20
+  // Ghost avoidance: capped at 7 so Pacman still pursues dots even at max difficulty.
+  // Previous value (difficulty*1.2) reached 12 at level 10, making Pacman too paralysed to win.
+  const avoidStrength = 1 + difficulty * 0.6; // 1→1.6  5→4  10→7
+  const chaseStrength = difficulty * 2;        // 1→2    5→10 10→20
+  // Dot bonus scales up with difficulty so high-difficulty Pacman stays aggressive about eating
+  const dotBonus   = 5 + difficulty;           // 1→6    5→10 10→15
+  const powerBonus = 8 + difficulty;           // 1→9    5→13 10→18
   // Random noise drowns out smart decisions at low difficulty
-  const noise = (11 - difficulty) * 2;     // 1→20   5→12 10→2
+  const noise = (11 - difficulty) * 2;         // 1→20   5→12 10→2
 
   let best = null;
   let bestScore = -Infinity;
@@ -53,8 +57,8 @@ function movePacman(state, maze) {
     let score = 0;
 
     const cell = maze[newRow] && maze[newRow][newCol];
-    if (cell === DOT)   score += 10;
-    if (cell === POWER) score += 15;
+    if (cell === DOT)   score += dotBonus;
+    if (cell === POWER) score += powerBonus;
 
     for (const ghostName of Object.keys(state.ghosts)) {
       const g = state.ghosts[ghostName];
