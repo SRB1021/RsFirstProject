@@ -69,11 +69,11 @@ function scoreMove(dir, pac, state, maze, difficulty) {
 
   // --- Difficulty knobs ---
   const bfsDepth      = difficulty >= 9 ? 20 : difficulty >= 7 ? 14 : difficulty >= 4 ? 9 : 5;
-  const avoidRange    = difficulty >= 10 ? 9  : difficulty >= 9 ? 7  : difficulty >= 7 ? 6 : 4;
-  const avoidStrength = difficulty >= 10 ? 30 : difficulty >= 9 ? 18 : difficulty >= 7 ? 12 : 1 + difficulty * 0.6;
+  const avoidRange    = difficulty >= 10 ? 12 : difficulty >= 9 ? 7  : difficulty >= 7 ? 6 : 4;
+  const avoidStrength = difficulty >= 10 ? 50 : difficulty >= 9 ? 18 : difficulty >= 7 ? 12 : 1 + difficulty * 0.6;
   const chaseStrength = difficulty * 2.5;
-  const dotBonus      = difficulty >= 10 ? 28 : 6 + difficulty;
-  const powerBonus    = difficulty >= 10 ? 65 : difficulty >= 9 ? 45 : 8 + difficulty * 1.5;
+  const dotBonus      = difficulty >= 10 ? 35 : 6 + difficulty;
+  const powerBonus    = difficulty >= 10 ? 80 : difficulty >= 9 ? 45 : 8 + difficulty * 1.5;
   const noise         = difficulty >= 9 ? 0 : difficulty >= 7 ? 2 : (11 - difficulty) * 2;
   const ghostPredictTicks = difficulty >= 8 ? 3 : difficulty >= 5 ? 2 : 0;
 
