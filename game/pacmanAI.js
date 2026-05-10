@@ -187,8 +187,7 @@ function stepPacman(state, maze, difficulty) {
   });
   if (available.length === 0) return;
 
-  const nonReverse = available.filter(dir => dir !== OPPOSITE[pac.direction]);
-  const choices = nonReverse.length > 0 ? nonReverse : available;
+  const choices = available;
 
   let best = choices[0];
   let bestScore = -Infinity;
