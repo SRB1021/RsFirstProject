@@ -337,7 +337,6 @@ socket.on('game_restarted', () => {
   previousState = null;
   overlay.style.display = 'none';
   audio.stopSiren();
-  audio.stopBGM();
   // In case someone was still in the waiting room (edge case)
   if (lobbyReady.style.display !== 'none') {
     enterGameScreen(myGhostName, currentRoomCode);
