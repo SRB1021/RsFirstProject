@@ -284,6 +284,7 @@ socket.on('game_restarted', () => {
   previousState = null;
   overlay.style.display = 'none';
   audio.stopSiren();
+  audio.stopBGM();
 });
 
 // --- 60fps render loop ---

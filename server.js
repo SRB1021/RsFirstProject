@@ -137,7 +137,7 @@ function checkSwapCollisions(state, code, pacBefore, ghostsBefore) {
     if (!prev) continue;
     const pacSwapped  = state.pacman.col === prev.col && state.pacman.row === prev.row;
     const ghostSwapped = g.col === pacBefore.col && g.row === pacBefore.row;
-    if (pacSwapped && ghostSwapped && !g.inHouse) {
+    if (pacSwapped && ghostSwapped && !g.inHouse && !g.graceTimer) {
       if (g.scared) {
         respawnGhost(state, name);
       } else {
@@ -155,7 +155,7 @@ function checkCollisions(state, code) {
   for (const name of Object.keys(state.ghosts)) {
     const g = state.ghosts[name];
     if (g.col !== state.pacman.col || g.row !== state.pacman.row) continue;
-    if (g.inHouse) continue;
+    if (g.inHouse || g.graceTimer > 0) continue; // still exiting house — not dangerous yet
     if (g.scared) {
       respawnGhost(state, name);
     } else {
@@ -217,6 +217,7 @@ setInterval(() => {
         ghost.scaredTimer--;
         if (ghost.scaredTimer <= 0) { ghost.scared = false; ghost.scaredTimer = 0; }
       }
+      if (ghost.graceTimer > 0) ghost.graceTimer--;
     }
 
     if (state.dotsRemaining <= 0) {

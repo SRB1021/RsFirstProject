@@ -27,6 +27,7 @@ function createGameState() {
       scaredTimer: 0,
       inHouse: true,
       exitTimer: EXIT_TIMERS[name],
+      graceTimer: 0,
     };
   }
   return {
@@ -140,6 +141,7 @@ function respawnGhost(state, name) {
   state.ghosts[name].scaredTimer = 0;
   state.ghosts[name].inHouse = true;
   state.ghosts[name].exitTimer = 20;
+  state.ghosts[name].graceTimer = 0;
 }
 
 module.exports = { createGameState, addPlayer, removePlayer, applyInput, resetGame, respawnGhost, GHOST_NAMES };

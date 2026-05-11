@@ -125,9 +125,11 @@ function handleGhostHouse(ghost, ghostName, allGhosts) {
   // Timer done: steer toward the exit tile
   moveTowardTarget(ghost, ghostName, EXIT_COL, EXIT_ROW, otherGhostTiles(allGhosts, ghostName));
 
-  // Once the ghost is no longer on a ghost-house tile, it has exited
+  // Once the ghost is no longer on a ghost-house tile, it has exited.
+  // Give a short grace period so it can't immediately kill Pac-Man at the door.
   if (!isGhostHome(ghost.col, ghost.row)) {
     ghost.inHouse = false;
+    ghost.graceTimer = 8; // ~1.2 seconds of invulnerability after exiting
   }
 
   return true; // movement already handled
