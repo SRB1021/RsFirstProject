@@ -208,24 +208,16 @@ setInterval(() => {
     }
 
     if (state.pacman.isHuman) {
-      // Human Pac-Man moves every tick; gets a second step when a ghost is within 6 tiles
+      // Human Pac-Man always takes two steps per tick (double speed)
       const pacBefore = { col: state.pacman.col, row: state.pacman.row };
       moveHumanPacman(state, state.dots);
       if (checkCollisions(state, code)) continue;
       if (checkSwapCollisions(state, code, pacBefore, ghostPosBefore)) continue;
 
-      // Speed boost: second step when a non-scared ghost is close
-      const pac = state.pacman;
-      const inDanger = Object.values(state.ghosts).some(g =>
-        !g.scared && !g.inHouse && !g.graceTimer &&
-        Math.abs(g.col - pac.col) + Math.abs(g.row - pac.row) <= 6
-      );
-      if (inDanger) {
-        const pacBefore2 = { col: pac.col, row: pac.row };
-        moveHumanPacman(state, state.dots);
-        if (checkCollisions(state, code)) continue;
-        if (checkSwapCollisions(state, code, pacBefore2, ghostPosBefore)) continue;
-      }
+      const pacBefore2 = { col: state.pacman.col, row: state.pacman.row };
+      moveHumanPacman(state, state.dots);
+      if (checkCollisions(state, code)) continue;
+      if (checkSwapCollisions(state, code, pacBefore2, ghostPosBefore)) continue;
     } else {
       // CPU Pac-Man (always runs at difficulty 10)
       const diff = state.difficulty || 10;
