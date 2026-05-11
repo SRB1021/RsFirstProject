@@ -1,6 +1,3 @@
-// Listen for arrow key presses and send them to the server.
-// The socket variable is set up in main.js and available globally.
-
 const KEY_TO_DIRECTION = {
   ArrowLeft:  'left',
   ArrowRight: 'right',
@@ -12,67 +9,53 @@ const KEY_TO_DIRECTION = {
   KeyS: 'down',
 };
 
-// --- Virtual joystick for mobile ---
+// --- Swipe controls for mobile ---
 
-const DEAD_ZONE = 16; // px — ignore tiny movements
+const SWIPE_DEAD_ZONE = 20; // px — minimum drag before registering a direction
 
-function createJoystick(socket) {
-  const base  = document.getElementById('joyBase');
-  const thumb = document.getElementById('joyThumb');
-  if (!base || !thumb) return;
+function setupSwipe(socket) {
+  const target = document.getElementById('gameScreen');
+  if (!target) return;
 
-  let active = false;
-  let originX = 0, originY = 0;
+  let startX = 0, startY = 0;
   let lastDir = null;
 
-  function getDir(dx, dy) {
-    if (Math.abs(dx) >= Math.abs(dy)) return dx > 0 ? 'right' : 'left';
-    return dy > 0 ? 'down' : 'up';
-  }
-
   function onStart(e) {
-    e.preventDefault();
-    active = true;
-    const touch = e.touches ? e.touches[0] : e;
-    originX = touch.clientX;
-    originY = touch.clientY;
-    base.classList.add('active');
+    const touch = e.touches[0];
+    startX = touch.clientX;
+    startY = touch.clientY;
+    lastDir = null;
   }
 
   function onMove(e) {
-    if (!active) return;
     e.preventDefault();
-    const touch = e.touches ? e.touches[0] : e;
-    const dx = touch.clientX - originX;
-    const dy = touch.clientY - originY;
+    const touch = e.touches[0];
+    const dx = touch.clientX - startX;
+    const dy = touch.clientY - startY;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    const maxR = 40; // thumb travel radius px
-    const clamp = Math.min(dist, maxR);
-    const angle = Math.atan2(dy, dx);
-    thumb.style.transform =
-      `translate(calc(-50% + ${Math.cos(angle) * clamp}px), calc(-50% + ${Math.sin(angle) * clamp}px))`;
+    if (dist < SWIPE_DEAD_ZONE) return;
 
-    if (dist >= DEAD_ZONE) {
-      const dir = getDir(dx, dy);
-      if (dir !== lastDir) {
-        lastDir = dir;
-        socket.emit('player_input', { direction: dir });
-      }
+    const dir = Math.abs(dx) >= Math.abs(dy)
+      ? (dx > 0 ? 'right' : 'left')
+      : (dy > 0 ? 'down'  : 'up');
+
+    if (dir !== lastDir) {
+      lastDir = dir;
+      socket.emit('player_input', { direction: dir });
+      // Reset origin so holding a direction keeps firing on continued drag
+      startX = touch.clientX;
+      startY = touch.clientY;
     }
   }
 
-  function onEnd(e) {
-    e.preventDefault();
-    active = false;
+  function onEnd() {
     lastDir = null;
-    thumb.style.transform = 'translate(-50%, -50%)';
-    base.classList.remove('active');
   }
 
-  base.addEventListener('touchstart',  onStart, { passive: false });
-  base.addEventListener('touchmove',   onMove,  { passive: false });
-  base.addEventListener('touchend',    onEnd,   { passive: false });
-  base.addEventListener('touchcancel', onEnd,   { passive: false });
+  target.addEventListener('touchstart', onStart, { passive: true });
+  target.addEventListener('touchmove',  onMove,  { passive: false });
+  target.addEventListener('touchend',   onEnd,   { passive: true });
+  target.addEventListener('touchcancel',onEnd,   { passive: true });
 }
 
 function setupInput(socket) {
@@ -84,5 +67,5 @@ function setupInput(socket) {
     }
   });
 
-  createJoystick(socket);
+  setupSwipe(socket);
 }
