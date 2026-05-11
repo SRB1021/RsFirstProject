@@ -1,4 +1,4 @@
-// Synthesised Pac-Man sound effects + chiptune BGM — Web Audio API, no external files.
+// Synthesised sound effects + Seven Nation Army BGM — Web Audio API, no external files.
 const audio = (() => {
   let ctx = null;
 
@@ -60,16 +60,6 @@ const audio = (() => {
       .forEach(([f, d]) => { blip(f, t, d, 0.15); t += d + 0.02; });
   }
 
-  function intro() {
-    const c = getCtx();
-    let t = c.currentTime + 0.08;
-    [
-      [494,0.10],[494,0.10],[740,0.10],[494,0.10],[784,0.10],
-      [494,0.08],[932,0.10],[880,0.10],[831,0.10],[784,0.10],
-      [494,0.10],[659,0.10],[831,0.10],[880,0.30],
-    ].forEach(([f, d]) => { blip(f, t, d, 0.13); t += d + 0.012; });
-  }
-
   // --- Scared-ghost siren ---
   let _siren = null;
 
@@ -104,52 +94,89 @@ const audio = (() => {
     _siren = null;
   }
 
-  // --- 1980s chiptune background music ---
+  // --- Seven Nation Army — The White Stripes ---
   //
-  // Two-voice lookahead scheduler:
-  //   voice 1 — melody (square wave, high register)
-  //   voice 2 — bass   (triangle wave, low register)
+  // Riff: E E G E D C B  (two bars of 4/4 at 120 BPM)
+  // Each entry: [frequency_hz, length_in_16th_notes]
+  // 16th note = 0.125 s at 120 BPM
   //
-  // Tempo: 160 BPM.  One unit = one 16th note ≈ 0.094 s.
-  // Melody/bass arrays have 64 entries = 4 bars of 4/4 = ~6-second loop.
-  // 0 = rest.
+  // Drums: kick on beats 1 & 3, snare on beats 2 & 4 (classic rock)
+  //        expressed as 16th-note positions within the 32-unit cycle.
 
-  const _U = 60 / 160 / 4; // 16th-note duration in seconds
+  const _16TH = 60 / 120 / 4; // 0.125 s
 
-  //  Melody — C major, bouncy arcade feel
-  const _MEL = [
-    // bar 1  E5  .   E5  G5    E5  D5  C5  B4    C5   .  E5  G5    A5  G5  F5  E5
-             659, 0, 659,784,  659,587,523,494,  523,  0,659,784,  880,784,698,659,
-    // bar 2  D5  E5  F5  G5    A5   .  G5   .    F5  E5  D5   .    C5   .   .   .
-             587,659,698,784,  880,  0,784,  0,  698,659,587,  0,  523,  0,  0,  0,
-    // bar 3  C5  E5  G5  A5    C6   .  A5  G5    F5  G5  A5  G5    F5  E5  D5  C5
-             523,659,784,880, 1047,  0,880,784,  698,784,880,784,  698,659,587,523,
-    // bar 4  E5   .  F5  E5    D5  C5  B4  C5    D5  E5  D5   .    C5   .   .   .
-             659,  0,698,659,  587,523,494,523,  587,659,587,  0,  523,  0,  0,  0,
+  const _RIFF = [
+    [164.81, 6],  // E3  dotted quarter
+    [164.81, 4],  // E3  quarter
+    [196.00, 2],  // G3  eighth
+    [164.81, 4],  // E3  quarter
+    [146.83, 2],  // D3  eighth
+    [130.81, 4],  // C3  quarter
+    [123.47, 10], // B2  fill to end of 2 bars (32 total)
   ];
+  const _RIFF_CYCLE = _RIFF.reduce((s, [, d]) => s + d, 0); // 32
 
-  //  Bass — half-bar (8 units) per note, I–V–vi–IV–I–V–IV–V pattern
-  //  C3=131  G3=196  A3=220  F3=175
-  const _BAS = [
-    131,0,0,0,0,0,0,0,  196,0,0,0,0,0,0,0,   // bar 1 : C - G
-    220,0,0,0,0,0,0,0,  175,0,0,0,0,0,0,0,   // bar 2 : Am - F
-    131,0,0,0,0,0,0,0,  196,0,0,0,0,0,0,0,   // bar 3 : C - G
-    175,0,0,0,0,0,0,0,  196,0,0,0,0,0,0,0,   // bar 4 : F - G
-  ];
+  const _KICKS  = new Set([0, 8, 16, 24]);
+  const _SNARES = new Set([4, 12, 20, 28]);
+
+  // Kick drum — pitched sine that drops fast (thud)
+  function _kick(t) {
+    const c = getCtx();
+    const osc  = c.createOscillator();
+    const gain = c.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(150, t);
+    osc.frequency.exponentialRampToValueAtTime(40, t + 0.12);
+    gain.gain.setValueAtTime(0.4, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+    osc.connect(gain); gain.connect(c.destination);
+    osc.start(t); osc.stop(t + 0.32);
+  }
+
+  // Snare — noise burst through highpass filter
+  function _snare(t) {
+    const c = getCtx();
+    const len = Math.ceil(c.sampleRate * 0.11);
+    const buf = c.createBuffer(1, len, c.sampleRate);
+    const d   = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    const src  = c.createBufferSource();
+    const filt = c.createBiquadFilter();
+    const gain = c.createGain();
+    src.buffer = buf;
+    filt.type = 'highpass'; filt.frequency.value = 2500;
+    gain.gain.setValueAtTime(0.22, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.11);
+    src.connect(filt); filt.connect(gain); gain.connect(c.destination);
+    src.start(t); src.stop(t + 0.14);
+  }
 
   let _bgm = null;
 
   function _scheduleBGM() {
     if (!_bgm) return;
     const c = getCtx();
-    const AHEAD = 0.3; // schedule this many seconds ahead
+    const AHEAD = 0.4;
 
-    while (_bgm.nextTime < c.currentTime + AHEAD) {
-      const i = _bgm.idx % _MEL.length;
-      if (_MEL[i] > 0) blip(_MEL[i], _bgm.nextTime, _U * 0.82, 0.055, 'square');
-      if (_BAS[i] > 0) blip(_BAS[i], _bgm.nextTime, _U * 6,    0.04,  'triangle');
-      _bgm.nextTime += _U;
-      _bgm.idx++;
+    // --- Riff voice ---
+    while (_bgm.noteNext < c.currentTime + AHEAD) {
+      const [freq, units] = _RIFF[_bgm.noteIdx];
+      const dur = units * _16TH;
+      // Main voice — sawtooth for guitar-like bite
+      blip(freq,     _bgm.noteNext, dur * 0.88, 0.12, 'sawtooth');
+      // Sub-octave bass reinforcement
+      blip(freq / 2, _bgm.noteNext, dur * 0.88, 0.05, 'triangle');
+      _bgm.noteNext += dur;
+      _bgm.noteIdx = (_bgm.noteIdx + 1) % _RIFF.length;
+    }
+
+    // --- Drums (independent 16th-note grid) ---
+    while (_bgm.drumNext < c.currentTime + AHEAD) {
+      const pos = _bgm.drumPos;
+      if (_KICKS.has(pos))  _kick(_bgm.drumNext);
+      if (_SNARES.has(pos)) _snare(_bgm.drumNext);
+      _bgm.drumNext += _16TH;
+      _bgm.drumPos = (pos + 1) % _RIFF_CYCLE;
     }
 
     _bgm.timerId = setTimeout(_scheduleBGM, 80);
@@ -158,7 +185,8 @@ const audio = (() => {
   function startBGM() {
     if (_bgm) return;
     const c = getCtx();
-    _bgm = { idx: 0, nextTime: c.currentTime + 0.05, timerId: null };
+    const t = c.currentTime + 0.05;
+    _bgm = { noteIdx: 0, noteNext: t, drumPos: 0, drumNext: t, timerId: null };
     _scheduleBGM();
   }
 
@@ -194,11 +222,8 @@ const audio = (() => {
       }
     }
 
-    // Game just started — play intro then kick off BGM
-    if (prevState && prevState.phase === 'waiting' && state.phase === 'playing') {
-      intro();
-      setTimeout(startBGM, 2000); // start after the intro jingle finishes
-    }
+    // Start BGM once the game is live (handles first tick or return from waiting)
+    if (!_bgm) startBGM();
   }
 
   // Unlock AudioContext on first user gesture
@@ -210,6 +235,6 @@ const audio = (() => {
   document.addEventListener('pointerdown', _unlock);
   document.addEventListener('keydown',     _unlock);
 
-  return { chomp, powerPellet, eatGhost, death, victory, intro,
+  return { chomp, powerPellet, eatGhost, death, victory,
            startSiren, stopSiren, startBGM, stopBGM, update };
 })();
