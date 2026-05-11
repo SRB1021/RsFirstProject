@@ -63,6 +63,21 @@ io.on('connection', (socket) => {
     socket.emit('room_status', { code: upper, takenGhosts: getTakenRoles(room.state) });
   });
 
+  // Solo mode: create a private room and join as Pac-Man in one step
+  socket.on('solo_game', ({ name }) => {
+    const code = generateCode();
+    const state = createGameState();
+    rooms.set(code, { state, creatorId: socket.id });
+    socketCreated.set(socket.id, code);
+
+    const role = addPlayer(state, socket.id, 'Pacman');
+    socketRoom.set(socket.id, code);
+    socket.join(code);
+
+    console.log(`${name || 'Pac-Man'} started solo game in room ${code}`);
+    socket.emit('game_joined', { ghostName: role, roomCode: code, isCreator: true });
+  });
+
   socket.on('join_game', ({ name, roomCode, preferredGhost }) => {
     const code = (roomCode || '').toUpperCase();
     const room = rooms.get(code);
@@ -190,11 +205,24 @@ setInterval(() => {
     }
 
     if (state.pacman.isHuman) {
-      // Human-controlled Pac-Man
+      // Human Pac-Man moves every tick; gets a second step when a ghost is within 6 tiles
       const pacBefore = { col: state.pacman.col, row: state.pacman.row };
       moveHumanPacman(state, state.dots);
       if (checkCollisions(state, code)) continue;
       if (checkSwapCollisions(state, code, pacBefore, ghostPosBefore)) continue;
+
+      // Speed boost: second step when a non-scared ghost is close
+      const pac = state.pacman;
+      const inDanger = Object.values(state.ghosts).some(g =>
+        !g.scared && !g.inHouse && !g.graceTimer &&
+        Math.abs(g.col - pac.col) + Math.abs(g.row - pac.row) <= 6
+      );
+      if (inDanger) {
+        const pacBefore2 = { col: pac.col, row: pac.row };
+        moveHumanPacman(state, state.dots);
+        if (checkCollisions(state, code)) continue;
+        if (checkSwapCollisions(state, code, pacBefore2, ghostPosBefore)) continue;
+      }
     } else {
       // CPU Pac-Man (always runs at difficulty 10)
       const diff = state.difficulty || 10;
