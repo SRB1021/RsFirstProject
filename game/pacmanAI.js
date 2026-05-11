@@ -223,6 +223,22 @@ function movePacman(state, maze) {
   if (difficulty >= 10) stepPacman(state, maze, difficulty);
 }
 
+function eatDot(state, maze) {
+  const pac = state.pacman;
+  const cell = maze[pac.row]?.[pac.col];
+  if (cell === DOT || cell === POWER) {
+    const atePower = cell === POWER;
+    state.dots[pac.row][pac.col] = EMPTY;
+    state.dotsRemaining--;
+    if (atePower) {
+      for (const ghost of Object.values(state.ghosts)) {
+        ghost.scared = true;
+        ghost.scaredTimer = 50;
+      }
+    }
+  }
+}
+
 // Move Pac-Man based on human player input.
 // Tries to turn immediately; if blocked, continues in current direction.
 function moveHumanPacman(state, maze) {
