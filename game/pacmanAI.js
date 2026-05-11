@@ -74,7 +74,8 @@ function scoreMove(dir, pac, state, maze, difficulty) {
   const chaseStrength = difficulty * 2.5;
   const dotBonus      = difficulty >= 10 ? 35 : 6 + difficulty;
   const powerBonus    = difficulty >= 10 ? 80 : difficulty >= 9 ? 45 : 8 + difficulty * 1.5;
-  const noise         = difficulty >= 9 ? 0 : difficulty >= 7 ? 2 : (11 - difficulty) * 2;
+  // Always keep a small noise floor so CPU Pac-Man never looks like it follows a fixed script
+  const noise         = difficulty >= 9 ? 3 : difficulty >= 7 ? 5 : (11 - difficulty) * 2;
   const ghostPredictTicks = difficulty >= 8 ? 3 : difficulty >= 5 ? 2 : 0;
 
   let score = Math.random() * noise;
@@ -217,11 +218,38 @@ function stepPacman(state, maze, difficulty) {
 }
 
 function movePacman(state, maze) {
-  const difficulty = state.difficulty || 5;
+  const difficulty = state.difficulty || 10;
   stepPacman(state, maze, difficulty);
-
-  // At difficulty 10: always take a second step (double speed).
   if (difficulty >= 10) stepPacman(state, maze, difficulty);
 }
 
-module.exports = { movePacman, stepPacman };
+// Move Pac-Man based on human player input.
+// Tries to turn immediately; if blocked, continues in current direction.
+function moveHumanPacman(state, maze) {
+  const pac = state.pacman;
+
+  // Try requested direction first
+  const tryDir = pac.nextDirection;
+  if (tryDir) {
+    const { dc, dr } = DIRS[tryDir];
+    const { col: wc, row: wr } = wrapTunnel(pac.col + dc, pac.row + dr);
+    if (isPassableForPacman(wc, wr)) {
+      pac.direction = tryDir;
+      pac.col = wc;
+      pac.row = wr;
+      eatDot(state, maze);
+      return;
+    }
+  }
+
+  // Continue in current direction if turn is blocked
+  const { dc, dr } = DIRS[pac.direction] || {};
+  if (dc === undefined) return;
+  const { col: wc, row: wr } = wrapTunnel(pac.col + dc, pac.row + dr);
+  if (!isPassableForPacman(wc, wr)) return;
+  pac.col = wc;
+  pac.row = wr;
+  eatDot(state, maze);
+}
+
+module.exports = { movePacman, stepPacman, moveHumanPacman };

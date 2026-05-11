@@ -28,13 +28,8 @@ const roomCodeLabel  = document.getElementById('roomCodeLabel');
 const overlay        = document.getElementById('overlay');
 const overlayTitle   = document.getElementById('overlayTitle');
 const restartBtn     = document.getElementById('restartBtn');
-const difficultyInput     = document.getElementById('difficultyInput');
-const difficultyValue     = document.getElementById('difficultyValue');
-const difficultyGame      = document.getElementById('difficultyGame');
-const difficultyGameValue = document.getElementById('difficultyGameValue');
-const difficultyLock      = document.getElementById('difficultyLock');
 
-// --- Ghost picker ---
+// --- Character picker ---
 
 let selectedGhost = 'Blinky';
 
@@ -78,13 +73,48 @@ function drawGhostIcon(cvs, color, dimmed) {
   ctx.globalAlpha = 1;
 }
 
-function renderGhostPicker(takenGhosts = []) {
+function drawPacmanIcon(cvs, dimmed) {
+  const ctx = cvs.getContext('2d');
+  const w = cvs.width, h = cvs.height - 14;
+  ctx.clearRect(0, 0, cvs.width, cvs.height);
+  ctx.globalAlpha = dimmed ? 0.4 : 1;
+
+  const cx = w / 2, cy = h / 2, r = Math.min(w, h) / 2 - 3;
+  const mouth = 0.25; // mouth opening in units of π
+
+  ctx.fillStyle = '#FFD700';
+  ctx.shadowColor = '#FFD700';
+  ctx.shadowBlur = dimmed ? 0 : 10;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.arc(cx, cy, r, mouth * Math.PI, (2 - mouth) * Math.PI);
+  ctx.closePath();
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // Eye
+  ctx.fillStyle = '#000';
+  ctx.beginPath();
+  ctx.arc(cx + r * 0.1, cy - r * 0.45, r * 0.12, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.globalAlpha = 1;
+}
+
+function renderGhostPicker(takenRoles = []) {
   document.querySelectorAll('.ghost-option').forEach(el => {
     const name  = el.dataset.ghost;
-    const taken = takenGhosts.includes(name);
+    const taken = takenRoles.includes(name);
     el.classList.toggle('taken', taken);
     el.classList.toggle('selected', name === selectedGhost && !taken);
-    drawGhostIcon(el.querySelector('canvas'), GHOST_COLORS[name], taken);
+
+    const cvs = el.querySelector('canvas');
+    if (name === 'Pacman') {
+      drawPacmanIcon(cvs, taken);
+    } else {
+      drawGhostIcon(cvs, GHOST_COLORS[name], taken);
+    }
+
     if (taken && name === selectedGhost) {
       const first = document.querySelector('.ghost-option:not(.taken)');
       if (first) setSelectedGhost(first.dataset.ghost);
@@ -105,17 +135,17 @@ document.querySelectorAll('.ghost-option').forEach(el => {
   });
 });
 
-renderGhostPicker(); // draw icons on page load
+renderGhostPicker();
 
 // --- Utility ---
 
-function showRoomPanel(code, takenGhosts = []) {
+function showRoomPanel(code, takenRoles = []) {
   currentRoomCode = code;
   roomCodeText.textContent = code;
   roomSelect.style.display = 'none';
   roomInfo.style.display   = 'flex';
   lobbyMsg.textContent     = '';
-  renderGhostPicker(takenGhosts);
+  renderGhostPicker(takenRoles);
 }
 
 function copyCode(code) {
@@ -159,10 +189,9 @@ roomCodeLabel.addEventListener('click', () => currentRoomCode && copyCode(curren
 joinBtn.addEventListener('click', () => {
   if (!currentRoomCode) return;
   socket.emit('join_game', {
-    name: nameInput.value.trim() || 'Ghost Player',
+    name: nameInput.value.trim() || (selectedGhost === 'Pacman' ? 'Pac-Man' : 'Ghost Player'),
     roomCode: currentRoomCode,
     preferredGhost: selectedGhost,
-    difficulty: Number(difficultyInput.value),
   });
   joinBtn.disabled = true;
   lobbyMsg.textContent = 'Joining game...';
@@ -171,17 +200,6 @@ joinBtn.addEventListener('click', () => {
 restartBtn.addEventListener('click', () => {
   socket.emit('request_restart');
   overlay.style.display = 'none';
-});
-
-// --- Difficulty sliders ---
-
-difficultyInput.addEventListener('input', () => {
-  difficultyValue.textContent = difficultyInput.value;
-});
-
-difficultyGame.addEventListener('input', () => {
-  difficultyGameValue.textContent = difficultyGame.value;
-  socket.emit('set_difficulty', { difficulty: Number(difficultyGame.value) });
 });
 
 // --- Socket events from server ---
@@ -210,16 +228,12 @@ socket.on('game_joined', ({ ghostName, roomCode, isCreator }) => {
   myGhostName = ghostName;
   currentRoomCode = roomCode;
   isRoomCreator = !!isCreator;
-  playerLabel.textContent  = `You are: ${ghostName}`;
+
+  const label = ghostName === 'Pacman' ? 'Pac-Man' : ghostName;
+  playerLabel.textContent   = `You are: ${label}`;
   roomCodeLabel.textContent = `Room: ${roomCode}`;
   lobby.style.display      = 'none';
   gameScreen.style.display = 'flex';
-
-  difficultyGame.disabled = !isRoomCreator;
-  difficultyLock.style.display = isRoomCreator ? 'none' : 'inline';
-
-  difficultyGame.value = difficultyInput.value;
-  difficultyGameValue.textContent = difficultyInput.value;
 
   canvas.width  = MAZE_COLS * TILE_SIZE;
   canvas.height = MAZE_ROWS * TILE_SIZE;
@@ -230,7 +244,7 @@ socket.on('game_joined', ({ ghostName, roomCode, isCreator }) => {
 
 socket.on('game_full', () => {
   joinBtn.disabled = false;
-  lobbyMsg.textContent = 'Sorry, that lobby is full! (4/4 players)';
+  lobbyMsg.textContent = 'Sorry, that lobby is full!';
 });
 
 socket.on('game_state', (state) => {
@@ -241,14 +255,10 @@ socket.on('game_state', (state) => {
 
   audio.update(state, prev);
 
-  if (state.difficulty !== undefined && Number(difficultyGame.value) !== state.difficulty) {
-    difficultyGame.value = state.difficulty;
-    difficultyGameValue.textContent = state.difficulty;
-  }
-
-  const humanCount = Object.values(state.ghosts).filter(g => !g.isCPU).length;
+  const humanCount = Object.values(state.ghosts).filter(g => !g.isCPU).length
+    + (state.pacman.isHuman ? 1 : 0);
   dotsLabel.textContent    = `Dots left: ${state.dotsRemaining}`;
-  playersLabel.textContent = `Players: ${humanCount}/4`;
+  playersLabel.textContent = `Players: ${humanCount}/5`;
 
   if (state.phase === 'waiting') {
     const ctx = canvas.getContext('2d');

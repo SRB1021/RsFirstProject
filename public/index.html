@@ -11,7 +11,7 @@
   <!-- Lobby screen shown before joining -->
   <div id="lobby">
     <h1>Ghost Pacman</h1>
-    <p>You and your friends are the ghosts!<br>Chase Pacman before he eats all the dots!</p>
+    <p>Chase Pacman as a ghost — or play as Pacman himself!</p>
 
     <input type="text" id="nameInput" placeholder="Your name" maxlength="16">
 
@@ -25,14 +25,14 @@
       </div>
     </div>
 
-    <!-- Step 2: ghost picker + settings (shown after room is found/created) -->
+    <!-- Step 2: character picker (shown after room is found/created) -->
     <div id="roomInfo" style="display:none;">
       <div id="roomCodeDisplay">
         Room code: <span id="roomCodeText"></span>
         <button id="copyCodeBtn" title="Copy code">&#128203;</button>
       </div>
 
-      <p class="section-label">Choose your ghost:</p>
+      <p class="section-label">Choose your character:</p>
       <div id="ghostPicker">
         <div class="ghost-option selected" data-ghost="Blinky">
           <canvas width="60" height="64"></canvas>
@@ -50,12 +50,10 @@
           <canvas width="60" height="64"></canvas>
           <span>Clyde</span>
         </div>
-      </div>
-
-      <div class="difficulty-row">
-        <label for="difficultyInput">Pacman difficulty: <span id="difficultyValue">5</span></label>
-        <input type="range" id="difficultyInput" min="1" max="10" value="5">
-        <span class="diff-hint">1 = easy &nbsp; 10 = hard</span>
+        <div class="ghost-option" data-ghost="Pacman">
+          <canvas width="60" height="64"></canvas>
+          <span>Pac-Man</span>
+        </div>
       </div>
 
       <button id="joinBtn">Play!</button>
@@ -71,11 +69,6 @@
       <span id="dotsLabel">Dots left: </span>
       <span id="playersLabel">Players online: 0/4</span>
       <span id="roomCodeLabel">Room: —</span>
-      <span id="difficultyBar">
-        Pacman: <input type="range" id="difficultyGame" min="1" max="10" value="5">
-        <span id="difficultyGameValue">5</span>
-        <span id="difficultyLock" style="display:none;" title="Only the lobby creator can change difficulty">&#128274;</span>
-      </span>
     </div>
     <canvas id="gameCanvas"></canvas>
 

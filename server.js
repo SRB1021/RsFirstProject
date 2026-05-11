@@ -3,8 +3,8 @@ const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
 
-const { createGameState, addPlayer, removePlayer, applyInput, resetGame, respawnGhost, setDifficulty } = require('./game/gameState');
-const { movePacman, stepPacman } = require('./game/pacmanAI');
+const { createGameState, addPlayer, removePlayer, applyInput, resetGame, respawnGhost, GHOST_NAMES } = require('./game/gameState');
+const { stepPacman, moveHumanPacman } = require('./game/pacmanAI');
 const { moveCPUGhosts, moveHumanGhost } = require('./game/ghostAI');
 
 const app = express();
@@ -15,14 +15,12 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// rooms: code → { state }
+// rooms: code → { state, creatorId }
 const rooms = new Map();
-// which room each socket is playing in (as an assigned ghost)
 const socketRoom = new Map();
-// which room each socket created but hasn't joined as a player yet
 const socketCreated = new Map();
 
-const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // no I/O to avoid 1/0 confusion
+const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 
 function generateCode() {
   let code;
@@ -34,10 +32,13 @@ function generateCode() {
   return code;
 }
 
-function getTakenGhosts(state) {
-  return Object.entries(state.ghosts)
+// Returns list of taken roles (ghost names + 'Pacman' if a human plays Pac-Man)
+function getTakenRoles(state) {
+  const roles = Object.entries(state.ghosts)
     .filter(([, g]) => !g.isCPU)
     .map(([name]) => name);
+  if (state.pacman.isHuman) roles.push('Pacman');
+  return roles;
 }
 
 // --- Socket connections ---
@@ -45,55 +46,41 @@ function getTakenGhosts(state) {
 io.on('connection', (socket) => {
   console.log(`Connected: ${socket.id}`);
 
-  // Player wants to create a new lobby
   socket.on('create_room', () => {
     const code = generateCode();
     rooms.set(code, { state: createGameState(), creatorId: socket.id });
     socketCreated.set(socket.id, code);
-    socket.join(code); // join Socket.io room so lobby_status broadcasts reach this socket
+    socket.join(code);
     socket.emit('room_created', { code });
     console.log(`Room created: ${code}`);
   });
 
-  // Player wants to join an existing lobby by code
   socket.on('check_room', ({ code }) => {
     const upper = (code || '').toUpperCase();
     const room = rooms.get(upper);
-    if (!room) {
-      socket.emit('room_not_found');
-      return;
-    }
+    if (!room) { socket.emit('room_not_found'); return; }
     socket.join(upper);
-    socket.emit('room_status', { code: upper, takenGhosts: getTakenGhosts(room.state) });
+    socket.emit('room_status', { code: upper, takenGhosts: getTakenRoles(room.state) });
   });
 
-  // Player confirmed their ghost and is ready to play
-  socket.on('join_game', ({ name, roomCode, preferredGhost, difficulty }) => {
+  socket.on('join_game', ({ name, roomCode, preferredGhost }) => {
     const code = (roomCode || '').toUpperCase();
     const room = rooms.get(code);
-    if (!room) {
-      socket.emit('room_not_found');
-      return;
-    }
+    if (!room) { socket.emit('room_not_found'); return; }
 
     const { state } = room;
     if (state.phase === 'gameover') resetGame(state);
 
-    const isCreator = room.creatorId === socket.id;
-    if (isCreator && difficulty) setDifficulty(state, difficulty);
-
-    const ghostName = addPlayer(state, socket.id, preferredGhost);
-    if (!ghostName) {
-      socket.emit('game_full');
-      return;
-    }
+    const role = addPlayer(state, socket.id, preferredGhost);
+    if (!role) { socket.emit('game_full'); return; }
 
     socketRoom.set(socket.id, code);
     socket.join(code);
 
-    console.log(`${name || 'Anonymous'} joined room ${code} as ${ghostName}`);
-    socket.emit('game_joined', { ghostName, roomCode: code, isCreator });
-    io.to(code).emit('lobby_status', { takenGhosts: getTakenGhosts(state) });
+    const isCreator = room.creatorId === socket.id;
+    console.log(`${name || 'Anonymous'} joined room ${code} as ${role}`);
+    socket.emit('game_joined', { ghostName: role, roomCode: code, isCreator });
+    io.to(code).emit('lobby_status', { takenGhosts: getTakenRoles(state) });
   });
 
   socket.on('player_input', ({ direction }) => {
@@ -103,26 +90,18 @@ io.on('connection', (socket) => {
     applyInput(room.state, socket.id, direction);
   });
 
-  socket.on('set_difficulty', ({ difficulty }) => {
-    const code = socketRoom.get(socket.id);
-    const room = code && rooms.get(code);
-    if (!room || room.creatorId !== socket.id) return;
-    setDifficulty(room.state, difficulty);
-  });
-
   socket.on('request_restart', () => {
     const code = socketRoom.get(socket.id);
     const room = code && rooms.get(code);
     if (!room) return;
     resetGame(room.state);
     io.to(code).emit('game_restarted');
-    io.to(code).emit('lobby_status', { takenGhosts: [] });
+    io.to(code).emit('lobby_status', { takenGhosts: getTakenRoles(room.state) });
   });
 
   socket.on('disconnect', () => {
     console.log(`Disconnected: ${socket.id}`);
 
-    // If they created a room but never joined as a player, clean it up if still empty
     const createdCode = socketCreated.get(socket.id);
     socketCreated.delete(socket.id);
     if (createdCode) {
@@ -133,7 +112,6 @@ io.on('connection', (socket) => {
       }
     }
 
-    // Remove from game if they were an active player
     const code = socketRoom.get(socket.id);
     socketRoom.delete(socket.id);
     if (!code) return;
@@ -142,7 +120,7 @@ io.on('connection', (socket) => {
     if (!room) return;
 
     removePlayer(room.state, socket.id);
-    io.to(code).emit('lobby_status', { takenGhosts: getTakenGhosts(room.state) });
+    io.to(code).emit('lobby_status', { takenGhosts: getTakenRoles(room.state) });
 
     if (room.state.playerCount === 0) {
       rooms.delete(code);
@@ -153,13 +131,11 @@ io.on('connection', (socket) => {
 
 // --- Collision detection ---
 
-// Detects the case where Pac-Man and a ghost swap positions in the same tick
-// (Pac-Man moves to ghost's old tile, ghost moves to Pac-Man's old tile)
 function checkSwapCollisions(state, code, pacBefore, ghostsBefore) {
   for (const [name, g] of Object.entries(state.ghosts)) {
     const prev = ghostsBefore[name];
     if (!prev) continue;
-    const pacSwapped = state.pacman.col === prev.col && state.pacman.row === prev.row;
+    const pacSwapped  = state.pacman.col === prev.col && state.pacman.row === prev.row;
     const ghostSwapped = g.col === pacBefore.col && g.row === pacBefore.row;
     if (pacSwapped && ghostSwapped && !g.inHouse) {
       if (g.scared) {
@@ -179,7 +155,7 @@ function checkCollisions(state, code) {
   for (const name of Object.keys(state.ghosts)) {
     const g = state.ghosts[name];
     if (g.col !== state.pacman.col || g.row !== state.pacman.row) continue;
-    if (g.inHouse) continue; // ghost still leaving the house — not dangerous yet
+    if (g.inHouse) continue;
     if (g.scared) {
       respawnGhost(state, name);
     } else {
@@ -192,49 +168,54 @@ function checkCollisions(state, code) {
   return false;
 }
 
-// --- Single game loop ticks every active room ---
+// --- Single game loop ---
 
 setInterval(() => {
   for (const [code, { state }] of rooms) {
     if (state.phase !== 'playing') continue;
 
+    // Move ghosts
     for (const name of Object.keys(state.ghosts)) {
       const ghost = state.ghosts[name];
       if (!ghost.isCPU) moveHumanGhost(ghost, name, state.ghosts);
     }
-
     moveCPUGhosts(state);
 
     if (checkCollisions(state, code)) continue;
 
-    // Snapshot ghost positions just before Pac-Man moves (for swap detection)
+    // Snapshot ghost positions before Pac-Man moves (swap detection)
     const ghostPosBefore = {};
     for (const [n, g] of Object.entries(state.ghosts)) {
       ghostPosBefore[n] = { col: g.col, row: g.row };
     }
 
-    // First Pac-Man step
-    const pacBefore = { col: state.pacman.col, row: state.pacman.row };
-    stepPacman(state, state.dots, state.difficulty || 5);
-
-    if (checkCollisions(state, code)) continue;
-    if (checkSwapCollisions(state, code, pacBefore, ghostPosBefore)) continue;
-
-    // Second step at difficulty 10
-    if ((state.difficulty || 5) >= 10) {
-      const pacBefore2 = { col: state.pacman.col, row: state.pacman.row };
-      stepPacman(state, state.dots, state.difficulty);
+    if (state.pacman.isHuman) {
+      // Human-controlled Pac-Man
+      const pacBefore = { col: state.pacman.col, row: state.pacman.row };
+      moveHumanPacman(state, state.dots);
       if (checkCollisions(state, code)) continue;
-      if (checkSwapCollisions(state, code, pacBefore2, ghostPosBefore)) continue;
+      if (checkSwapCollisions(state, code, pacBefore, ghostPosBefore)) continue;
+    } else {
+      // CPU Pac-Man (always runs at difficulty 10)
+      const diff = state.difficulty || 10;
+      const pacBefore = { col: state.pacman.col, row: state.pacman.row };
+      stepPacman(state, state.dots, diff);
+      if (checkCollisions(state, code)) continue;
+      if (checkSwapCollisions(state, code, pacBefore, ghostPosBefore)) continue;
+
+      // Second step at difficulty 10 (double speed)
+      if (diff >= 10) {
+        const pacBefore2 = { col: state.pacman.col, row: state.pacman.row };
+        stepPacman(state, state.dots, diff);
+        if (checkCollisions(state, code)) continue;
+        if (checkSwapCollisions(state, code, pacBefore2, ghostPosBefore)) continue;
+      }
     }
 
     for (const ghost of Object.values(state.ghosts)) {
       if (ghost.scared) {
         ghost.scaredTimer--;
-        if (ghost.scaredTimer <= 0) {
-          ghost.scared = false;
-          ghost.scaredTimer = 0;
-        }
+        if (ghost.scaredTimer <= 0) { ghost.scared = false; ghost.scaredTimer = 0; }
       }
     }
 

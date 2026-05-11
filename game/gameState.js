@@ -2,7 +2,6 @@ const { freshDots, countDots } = require('./maze');
 
 const GHOST_NAMES = ['Blinky', 'Pinky', 'Inky', 'Clyde'];
 
-// Staggered exit delays (in ticks at 150ms each): Blinky exits first
 const EXIT_TIMERS = { Blinky: 20, Pinky: 30, Inky: 40, Clyde: 50 };
 
 const GHOST_STARTS = {
@@ -31,20 +30,37 @@ function createGameState() {
     };
   }
   return {
-    pacman: { col: PACMAN_START.col, row: PACMAN_START.row, direction: 'left', nextDirection: 'left' },
+    pacman: {
+      col: PACMAN_START.col,
+      row: PACMAN_START.row,
+      direction: 'left',
+      nextDirection: 'left',
+      playerId: null,
+      isHuman: false,
+    },
     ghosts,
     dots,
     dotsRemaining: countDots(dots),
     phase: 'waiting',
     winner: null,
     playerCount: 0,
-    difficulty: 5,
+    difficulty: 10, // CPU Pac-Man always runs at max difficulty
   };
 }
 
-function addPlayer(state, socketId, preferredGhost) {
-  const order = preferredGhost && state.ghosts[preferredGhost]
-    ? [preferredGhost, ...GHOST_NAMES.filter(n => n !== preferredGhost)]
+function addPlayer(state, socketId, preferredRole) {
+  // Allow one player to be Pac-Man
+  if (preferredRole === 'Pacman' && !state.pacman.isHuman) {
+    state.pacman.playerId = socketId;
+    state.pacman.isHuman = true;
+    state.playerCount++;
+    if (state.phase === 'waiting') state.phase = 'playing';
+    return 'Pacman';
+  }
+
+  // Assign a ghost slot
+  const order = preferredRole && state.ghosts[preferredRole]
+    ? [preferredRole, ...GHOST_NAMES.filter(n => n !== preferredRole)]
     : GHOST_NAMES;
   for (const name of order) {
     if (state.ghosts[name].isCPU) {
@@ -59,6 +75,15 @@ function addPlayer(state, socketId, preferredGhost) {
 }
 
 function removePlayer(state, socketId) {
+  // Check if this player was Pac-Man
+  if (state.pacman.playerId === socketId) {
+    state.pacman.playerId = null;
+    state.pacman.isHuman = false;
+    state.playerCount--;
+    if (state.playerCount === 0) state.phase = 'waiting';
+    return;
+  }
+
   for (const name of GHOST_NAMES) {
     if (state.ghosts[name].playerId === socketId) {
       state.ghosts[name].playerId = null;
@@ -71,6 +96,11 @@ function removePlayer(state, socketId) {
 }
 
 function applyInput(state, socketId, direction) {
+  // Route input to Pac-Man if this player controls it
+  if (state.pacman.playerId === socketId) {
+    state.pacman.nextDirection = direction;
+    return;
+  }
   for (const name of GHOST_NAMES) {
     if (state.ghosts[name].playerId === socketId) {
       state.ghosts[name].nextDirection = direction;
@@ -81,7 +111,11 @@ function applyInput(state, socketId, direction) {
 
 function resetGame(state) {
   const dots = freshDots();
-  state.pacman = { col: PACMAN_START.col, row: PACMAN_START.row, direction: 'left', nextDirection: 'left' };
+  state.pacman.col = PACMAN_START.col;
+  state.pacman.row = PACMAN_START.row;
+  state.pacman.direction = 'left';
+  state.pacman.nextDirection = 'left';
+  // Keep pacman.playerId/isHuman — the player stays as Pac-Man across restarts
   state.dots = dots;
   state.dotsRemaining = countDots(dots);
   state.winner = null;
@@ -105,11 +139,7 @@ function respawnGhost(state, name) {
   state.ghosts[name].scared = false;
   state.ghosts[name].scaredTimer = 0;
   state.ghosts[name].inHouse = true;
-  state.ghosts[name].exitTimer = 20; // 3 seconds before re-entering the chase
+  state.ghosts[name].exitTimer = 20;
 }
 
-function setDifficulty(state, level) {
-  state.difficulty = Math.max(1, Math.min(10, level));
-}
-
-module.exports = { createGameState, addPlayer, removePlayer, applyInput, resetGame, respawnGhost, setDifficulty, GHOST_NAMES };
+module.exports = { createGameState, addPlayer, removePlayer, applyInput, resetGame, respawnGhost, GHOST_NAMES };
