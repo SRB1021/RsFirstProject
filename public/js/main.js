@@ -16,7 +16,6 @@ const lobbyMsg       = document.getElementById('lobbyMsg');
 const roomSelect     = document.getElementById('roomSelect');
 const roomInfo       = document.getElementById('roomInfo');
 const roomCodeInput  = document.getElementById('roomCodeInput');
-const soloBtn        = document.getElementById('soloBtn');
 const createRoomBtn  = document.getElementById('createRoomBtn');
 const joinRoomBtn    = document.getElementById('joinRoomBtn');
 const roomCodeText   = document.getElementById('roomCodeText');
@@ -156,12 +155,6 @@ function copyCode(code) {
 }
 
 // --- Room selection handlers ---
-
-soloBtn.addEventListener('click', () => {
-  soloBtn.disabled = true;
-  lobbyMsg.textContent = 'Starting solo game...';
-  socket.emit('solo_game', { name: nameInput.value.trim() || 'Pac-Man' });
-});
 
 createRoomBtn.addEventListener('click', () => {
   socket.emit('create_room');

@@ -48,28 +48,12 @@ body {
   margin: 1rem 0;
 }
 
-#soloBtn {
+#createRoomBtn {
   background: #FFD700;
   color: #000;
   border: none;
-  padding: 0.65rem 2rem;
-  font-size: 1.05rem;
-  font-weight: bold;
-  border-radius: 4px;
-  cursor: pointer;
-  font-family: 'Courier New', monospace;
-  width: 220px;
-  box-shadow: 0 0 12px rgba(255,215,0,0.4);
-}
-
-#soloBtn:hover { background: #fff; }
-
-#createRoomBtn {
-  background: transparent;
-  color: #FFD700;
-  border: 2px solid #FFD700;
-  padding: 0.55rem 2rem;
-  font-size: 0.95rem;
+  padding: 0.6rem 2rem;
+  font-size: 1rem;
   font-weight: bold;
   border-radius: 4px;
   cursor: pointer;
@@ -77,7 +61,7 @@ body {
   width: 200px;
 }
 
-#createRoomBtn:hover { background: #FFD700; color: #000; }
+#createRoomBtn:hover { background: #fff; }
 
 .or-divider {
   color: #444;

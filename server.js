@@ -63,21 +63,6 @@ io.on('connection', (socket) => {
     socket.emit('room_status', { code: upper, takenGhosts: getTakenRoles(room.state) });
   });
 
-  // Solo mode: create a private room and join as Pac-Man in one step
-  socket.on('solo_game', ({ name }) => {
-    const code = generateCode();
-    const state = createGameState();
-    rooms.set(code, { state, creatorId: socket.id });
-    socketCreated.set(socket.id, code);
-
-    const role = addPlayer(state, socket.id, 'Pacman');
-    socketRoom.set(socket.id, code);
-    socket.join(code);
-
-    console.log(`${name || 'Pac-Man'} started solo game in room ${code}`);
-    socket.emit('game_joined', { ghostName: role, roomCode: code, isCreator: true });
-  });
-
   socket.on('join_game', ({ name, roomCode, preferredGhost }) => {
     const code = (roomCode || '').toUpperCase();
     const room = rooms.get(code);
