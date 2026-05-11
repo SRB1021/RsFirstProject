@@ -240,6 +240,74 @@ body {
   color: #f88;
 }
 
+/* Lobby ready / waiting room */
+#lobbyReady {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+
+#roomCodeDisplay2 {
+  font-size: 0.9rem;
+  color: #aaa;
+}
+
+#roomCodeText2 {
+  color: #FFD700;
+  font-weight: bold;
+  letter-spacing: 0.15em;
+}
+
+#lobbyPlayerList {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 160px;
+}
+
+.lobby-player-row {
+  color: #ccc;
+  font-size: 0.9rem;
+}
+
+.lobby-player-row .role-name {
+  font-weight: bold;
+}
+
+#joinNotification {
+  color: #7f7;
+  font-size: 0.85rem;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+#startGameBtn {
+  background: #FFD700;
+  color: #000;
+  border: none;
+  padding: 0.6rem 2rem;
+  font-size: 1.1rem;
+  font-weight: bold;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'Courier New', monospace;
+  margin-top: 0.5rem;
+}
+
+#startGameBtn:hover { background: #fff; }
+
+#waitingMsg {
+  color: #aaa;
+  font-size: 0.9rem;
+}
+
 /* Pac-Man option gets a gold border to stand out */
 .ghost-option[data-ghost="Pacman"] {
   border-color: #555;

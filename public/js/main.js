@@ -20,14 +20,22 @@ const createRoomBtn  = document.getElementById('createRoomBtn');
 const joinRoomBtn    = document.getElementById('joinRoomBtn');
 const roomCodeText   = document.getElementById('roomCodeText');
 const copyCodeBtn    = document.getElementById('copyCodeBtn');
-const joinBtn        = document.getElementById('joinBtn');
-const playerLabel    = document.getElementById('playerLabel');
-const dotsLabel      = document.getElementById('dotsLabel');
-const playersLabel   = document.getElementById('playersLabel');
-const roomCodeLabel  = document.getElementById('roomCodeLabel');
-const overlay        = document.getElementById('overlay');
-const overlayTitle   = document.getElementById('overlayTitle');
-const restartBtn     = document.getElementById('restartBtn');
+const joinBtn           = document.getElementById('joinBtn');
+const playerLabel       = document.getElementById('playerLabel');
+const dotsLabel         = document.getElementById('dotsLabel');
+const playersLabel      = document.getElementById('playersLabel');
+const roomCodeLabel     = document.getElementById('roomCodeLabel');
+const overlay           = document.getElementById('overlay');
+const overlayTitle      = document.getElementById('overlayTitle');
+const restartBtn        = document.getElementById('restartBtn');
+const lobbyReady        = document.getElementById('lobbyReady');
+const roomCodeText2     = document.getElementById('roomCodeText2');
+const startGameBtn      = document.getElementById('startGameBtn');
+const waitingMsg        = document.getElementById('waitingMsg');
+const lobbyPlayerList   = document.getElementById('lobbyPlayerList');
+const joinNotification  = document.getElementById('joinNotification');
+
+let notifTimer = null;
 
 // --- Character picker ---
 
@@ -222,24 +230,69 @@ socket.on('room_not_found', () => {
 
 socket.on('lobby_status', ({ takenGhosts }) => {
   renderGhostPicker(takenGhosts);
+  // Update player list in waiting room if visible
+  if (lobbyReady.style.display !== 'none') {
+    lobbyPlayerList.innerHTML = takenGhosts.length === 0
+      ? '<span class="lobby-player-row" style="color:#555;">No players yet</span>'
+      : takenGhosts.map(r => {
+          const label = r === 'Pacman' ? 'Pac-Man' : r;
+          return `<span class="lobby-player-row"><span class="role-name">${label}</span></span>`;
+        }).join('');
+  }
 });
 
-socket.on('game_joined', ({ ghostName, roomCode, isCreator }) => {
+socket.on('game_joined', ({ ghostName, roomCode, isCreator, phase }) => {
   myGhostName = ghostName;
   currentRoomCode = roomCode;
   isRoomCreator = !!isCreator;
 
+  if (phase === 'playing') {
+    // Mid-game join (e.g. after a restart) — go straight to game screen
+    enterGameScreen(ghostName, roomCode);
+  } else {
+    // Game not started yet — show the waiting room
+    roomInfo.style.display  = 'none';
+    roomCodeText2.textContent = roomCode;
+    lobbyReady.style.display = 'flex';
+    if (isCreator) {
+      startGameBtn.style.display = 'inline-block';
+      waitingMsg.textContent = 'Start when everyone is ready.';
+    } else {
+      waitingMsg.textContent = 'Waiting for the host to start...';
+    }
+  }
+});
+
+function enterGameScreen(ghostName, roomCode) {
   const label = ghostName === 'Pacman' ? 'Pac-Man' : ghostName;
   playerLabel.textContent   = `You are: ${label}`;
   roomCodeLabel.textContent = `Room: ${roomCode}`;
-  lobby.style.display      = 'none';
-  gameScreen.style.display = 'flex';
+  lobby.style.display       = 'none';
+  gameScreen.style.display  = 'flex';
 
   canvas.width  = MAZE_COLS * TILE_SIZE;
   canvas.height = MAZE_ROWS * TILE_SIZE;
 
   setupInput(socket);
   requestAnimationFrame(renderLoop);
+}
+
+startGameBtn.addEventListener('click', () => {
+  socket.emit('start_game');
+  startGameBtn.disabled = true;
+});
+
+socket.on('game_started', () => {
+  enterGameScreen(myGhostName, currentRoomCode);
+});
+
+socket.on('player_joined_notify', ({ name, role }) => {
+  const roleLabel = role === 'Pacman' ? 'Pac-Man' : role;
+  joinNotification.textContent = `${name} joined as ${roleLabel}!`;
+  joinNotification.style.display = 'block';
+  // Auto-hide after 3s
+  clearTimeout(notifTimer);
+  notifTimer = setTimeout(() => { joinNotification.style.display = 'none'; }, 3000);
 });
 
 socket.on('game_full', () => {
@@ -285,6 +338,10 @@ socket.on('game_restarted', () => {
   overlay.style.display = 'none';
   audio.stopSiren();
   audio.stopBGM();
+  // In case someone was still in the waiting room (edge case)
+  if (lobbyReady.style.display !== 'none') {
+    enterGameScreen(myGhostName, currentRoomCode);
+  }
 });
 
 // --- 60fps render loop ---

@@ -48,8 +48,11 @@ function drawMaze(ctx, dots) {
         ctx.lineWidth = 1;
         ctx.strokeRect(x + 0.5, y + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
       } else if (cell === TILE_GHOST_HOME) {
-        // Ghost house interior — draw as dark floor with a subtle tint
-        ctx.fillStyle = '#0a0a2a';
+        ctx.fillStyle = '#0e0e30';
+        ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+      } else if (cell === TILE_EMPTY) {
+        // Empty floor — subtle dark tint so outer areas don't look like void
+        ctx.fillStyle = '#0a0a18';
         ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
       } else if (cell === TILE_DOT) {
         ctx.fillStyle = '#FFE7A0';

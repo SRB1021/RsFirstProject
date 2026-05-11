@@ -59,6 +59,18 @@
       <button id="joinBtn">Play!</button>
     </div>
 
+    <!-- Step 3: waiting room (shown after joining, before host starts) -->
+    <div id="lobbyReady" style="display:none;">
+      <div id="roomCodeDisplay2">
+        Room code: <span id="roomCodeText2"></span>
+      </div>
+      <p class="section-label" style="margin-top:0.75rem;">Players in lobby:</p>
+      <div id="lobbyPlayerList"></div>
+      <p id="joinNotification" style="display:none;"></p>
+      <button id="startGameBtn" style="display:none;">Start Game</button>
+      <p id="waitingMsg"></p>
+    </div>
+
     <p id="lobbyMsg"></p>
   </div>
 

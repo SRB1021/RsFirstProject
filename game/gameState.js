@@ -55,7 +55,6 @@ function addPlayer(state, socketId, preferredRole) {
     state.pacman.playerId = socketId;
     state.pacman.isHuman = true;
     state.playerCount++;
-    if (state.phase === 'waiting') state.phase = 'playing';
     return 'Pacman';
   }
 
@@ -68,7 +67,6 @@ function addPlayer(state, socketId, preferredRole) {
       state.ghosts[name].playerId = socketId;
       state.ghosts[name].isCPU = false;
       state.playerCount++;
-      if (state.phase === 'waiting') state.phase = 'playing';
       return name;
     }
   }

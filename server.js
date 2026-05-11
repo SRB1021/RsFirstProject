@@ -79,8 +79,26 @@ io.on('connection', (socket) => {
 
     const isCreator = room.creatorId === socket.id;
     console.log(`${name || 'Anonymous'} joined room ${code} as ${role}`);
-    socket.emit('game_joined', { ghostName: role, roomCode: code, isCreator });
+    socket.emit('game_joined', { ghostName: role, roomCode: code, isCreator, phase: state.phase });
     io.to(code).emit('lobby_status', { takenGhosts: getTakenRoles(state) });
+    // Send current state immediately so canvas isn't blank while waiting for first loop tick
+    if (state.phase === 'playing') socket.emit('game_state', state);
+    // Notify the host when someone else joins
+    if (!isCreator && room.creatorId) {
+      const displayName = name || (role === 'Pacman' ? 'Pac-Man' : role);
+      io.to(room.creatorId).emit('player_joined_notify', { name: displayName, role });
+    }
+  });
+
+  socket.on('start_game', () => {
+    const code = socketRoom.get(socket.id);
+    const room = code && rooms.get(code);
+    if (!room) return;
+    if (room.creatorId !== socket.id) return; // only host can start
+    if (room.state.phase !== 'waiting') return;
+    room.state.phase = 'playing';
+    io.to(code).emit('game_started');
+    io.to(code).emit('game_state', room.state);
   });
 
   socket.on('player_input', ({ direction }) => {
