@@ -8,7 +8,7 @@ const audio = (() => {
     return ctx;
   }
 
-  // Schedule a single oscillator note
+  // Plain oscillator note (used by SFX)
   function blip(freq, startTime, duration, vol = 0.14, wave = 'square') {
     const c = getCtx();
     const osc  = c.createOscillator();
@@ -21,6 +21,47 @@ const audio = (() => {
     gain.gain.linearRampToValueAtTime(0, startTime + duration - 0.008);
     osc.start(startTime);
     osc.stop(startTime + duration);
+  }
+
+  // Distorted guitar note — sawtooth → waveshaper → lowpass, plus clean sub-octave bass
+  function _distCurve(amount) {
+    const n = 512, curve = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const x = (i * 2) / n - 1;
+      curve[i] = ((Math.PI + amount) * x) / (Math.PI + amount * Math.abs(x));
+    }
+    return curve;
+  }
+  const _DIST_CURVE = _distCurve(280);
+
+  function _riffNote(freq, t, dur, vol = 0.15) {
+    const c = getCtx();
+
+    // Distorted upper voice
+    const osc1 = c.createOscillator();
+    const ws   = c.createWaveShaper();
+    const lp   = c.createBiquadFilter();
+    const g1   = c.createGain();
+    osc1.type = 'sawtooth';
+    osc1.frequency.value = freq;
+    ws.curve = _DIST_CURVE;
+    ws.oversample = '4x';
+    lp.type = 'lowpass'; lp.frequency.value = 2800; lp.Q.value = 1.2;
+    osc1.connect(ws); ws.connect(lp); lp.connect(g1); g1.connect(c.destination);
+    g1.gain.setValueAtTime(vol, t);
+    g1.gain.setValueAtTime(vol * 0.85, t + dur * 0.15);
+    g1.gain.linearRampToValueAtTime(0, t + dur - 0.01);
+    osc1.start(t); osc1.stop(t + dur);
+
+    // Clean sub-octave bass (triangle, one octave down)
+    const osc2 = c.createOscillator();
+    const g2   = c.createGain();
+    osc2.type = 'triangle';
+    osc2.frequency.value = freq / 2;
+    osc2.connect(g2); g2.connect(c.destination);
+    g2.gain.setValueAtTime(vol * 0.45, t);
+    g2.gain.linearRampToValueAtTime(0, t + dur - 0.01);
+    osc2.start(t); osc2.stop(t + dur);
   }
 
   // --- Sound effects ---
@@ -66,19 +107,12 @@ const audio = (() => {
   function startSiren() {
     if (_siren) return;
     const c = getCtx();
-    const osc  = c.createOscillator();
-    const lfo  = c.createOscillator();
-    const lfoG = c.createGain();
-    const mGain = c.createGain();
-    osc.type = 'square';
-    osc.frequency.value = 290;
-    lfo.frequency.value = 5;
-    lfoG.gain.value     = 110;
-    mGain.gain.value    = 0.07;
-    lfo.connect(lfoG);
-    lfoG.connect(osc.frequency);
-    osc.connect(mGain);
-    mGain.connect(c.destination);
+    const osc = c.createOscillator(), lfo = c.createOscillator();
+    const lfoG = c.createGain(), mGain = c.createGain();
+    osc.type = 'square'; osc.frequency.value = 290;
+    lfo.frequency.value = 5; lfoG.gain.value = 110; mGain.gain.value = 0.07;
+    lfo.connect(lfoG); lfoG.connect(osc.frequency);
+    osc.connect(mGain); mGain.connect(c.destination);
     lfo.start(); osc.start();
     _siren = { osc, lfo, mGain };
   }
@@ -94,17 +128,25 @@ const audio = (() => {
     _siren = null;
   }
 
-  // --- Seven Nation Army — The White Stripes ---
+  // -----------------------------------------------------------------------
+  // Seven Nation Army BGM
   //
-  // Riff: E E G E D C B  (two bars of 4/4 at 120 BPM)
-  // Each entry: [frequency_hz, length_in_16th_notes]
-  // 16th note = 0.125 s at 120 BPM
+  // Tempo : 124 BPM  →  16th note = 60/124/4 ≈ 0.121 s
   //
-  // Drums: kick on beats 1 & 3, snare on beats 2 & 4 (classic rock)
-  //        expressed as 16th-note positions within the 32-unit cycle.
+  // Riff  : E3 E3 G3 E3 D3 C3 B2 (rest)   — 2 bars of 4/4
+  //         Each entry: [freq_hz, length_in_16ths]   0 freq = rest
+  //
+  // Drums : BOOM–boom–CLAP pattern (what makes the song recognisable)
+  //   Kick  : beat 1 AND the "and" of beat 1   (16th positions 0 & 2)
+  //   Snare : beat 3 only                       (16th position  8)
+  //   Hi-hat: every quarter note                (positions 0,4,8,12)
+  //   (same pattern repeated in bar 2, positions +16)
+  // -----------------------------------------------------------------------
 
-  const _16TH = 60 / 120 / 4; // 0.125 s
+  const _BPM  = 124;
+  const _16TH = 60 / _BPM / 4; // ≈ 0.121 s
 
+  // Riff: 6+4+2+4+2+4+8+2 = 32 sixteenth notes
   const _RIFF = [
     [164.81, 6],  // E3  dotted quarter
     [164.81, 4],  // E3  quarter
@@ -112,43 +154,71 @@ const audio = (() => {
     [164.81, 4],  // E3  quarter
     [146.83, 2],  // D3  eighth
     [130.81, 4],  // C3  quarter
-    [123.47, 10], // B2  fill to end of 2 bars (32 total)
+    [123.47, 8],  // B2  half note
+    [0,      2],  // rest before loop
   ];
   const _RIFF_CYCLE = _RIFF.reduce((s, [, d]) => s + d, 0); // 32
 
-  const _KICKS  = new Set([0, 8, 16, 24]);
-  const _SNARES = new Set([4, 12, 20, 28]);
+  // BOOM–boom–CLAP drum positions (per 32-unit two-bar cycle)
+  const _KICKS  = new Set([0, 2,  16, 18]); // beats 1 & "and of 1" in each bar
+  const _SNARES = new Set([8, 24]);          // beat 3 in each bar
+  const _HIHATS = new Set([0, 4, 8, 12, 16, 20, 24, 28]); // every quarter
 
-  // Kick drum — pitched sine that drops fast (thud)
+  // Kick: pitched sine drop (thud)
   function _kick(t) {
     const c = getCtx();
-    const osc  = c.createOscillator();
-    const gain = c.createGain();
+    const osc = c.createOscillator(), gain = c.createGain();
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(150, t);
-    osc.frequency.exponentialRampToValueAtTime(40, t + 0.12);
-    gain.gain.setValueAtTime(0.4, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+    osc.frequency.setValueAtTime(160, t);
+    osc.frequency.exponentialRampToValueAtTime(38, t + 0.13);
+    gain.gain.setValueAtTime(0.45, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
     osc.connect(gain); gain.connect(c.destination);
-    osc.start(t); osc.stop(t + 0.32);
+    osc.start(t); osc.stop(t + 0.35);
   }
 
-  // Snare — noise burst through highpass filter
+  // Snare: noise through bandpass + sine body
   function _snare(t) {
     const c = getCtx();
-    const len = Math.ceil(c.sampleRate * 0.11);
+    // Noise component
+    const len = Math.ceil(c.sampleRate * 0.14);
     const buf = c.createBuffer(1, len, c.sampleRate);
-    const d   = buf.getChannelData(0);
+    const d = buf.getChannelData(0);
     for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
     const src  = c.createBufferSource();
-    const filt = c.createBiquadFilter();
-    const gain = c.createGain();
+    const hp   = c.createBiquadFilter();
+    const ng   = c.createGain();
     src.buffer = buf;
-    filt.type = 'highpass'; filt.frequency.value = 2500;
-    gain.gain.setValueAtTime(0.22, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.11);
-    src.connect(filt); filt.connect(gain); gain.connect(c.destination);
-    src.start(t); src.stop(t + 0.14);
+    hp.type = 'highpass'; hp.frequency.value = 2200;
+    ng.gain.setValueAtTime(0.28, t);
+    ng.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
+    src.connect(hp); hp.connect(ng); ng.connect(c.destination);
+    src.start(t); src.stop(t + 0.16);
+    // Tone body (snare "crack")
+    const osc = c.createOscillator(), og = c.createGain();
+    osc.type = 'triangle'; osc.frequency.value = 200;
+    og.gain.setValueAtTime(0.18, t);
+    og.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+    osc.connect(og); og.connect(c.destination);
+    osc.start(t); osc.stop(t + 0.07);
+  }
+
+  // Hi-hat: very short high-frequency noise
+  function _hihat(t) {
+    const c = getCtx();
+    const len = Math.ceil(c.sampleRate * 0.04);
+    const buf = c.createBuffer(1, len, c.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    const src = c.createBufferSource();
+    const hp  = c.createBiquadFilter();
+    const g   = c.createGain();
+    src.buffer = buf;
+    hp.type = 'highpass'; hp.frequency.value = 7000;
+    g.gain.setValueAtTime(0.09, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+    src.connect(hp); hp.connect(g); g.connect(c.destination);
+    src.start(t); src.stop(t + 0.05);
   }
 
   let _bgm = null;
@@ -158,23 +228,21 @@ const audio = (() => {
     const c = getCtx();
     const AHEAD = 0.4;
 
-    // --- Riff voice ---
+    // Riff notes (variable length, independent pointer)
     while (_bgm.noteNext < c.currentTime + AHEAD) {
       const [freq, units] = _RIFF[_bgm.noteIdx];
       const dur = units * _16TH;
-      // Main voice — sawtooth for guitar-like bite
-      blip(freq,     _bgm.noteNext, dur * 0.88, 0.12, 'sawtooth');
-      // Sub-octave bass reinforcement
-      blip(freq / 2, _bgm.noteNext, dur * 0.88, 0.05, 'triangle');
+      if (freq > 0) _riffNote(freq, _bgm.noteNext, dur);
       _bgm.noteNext += dur;
       _bgm.noteIdx = (_bgm.noteIdx + 1) % _RIFF.length;
     }
 
-    // --- Drums (independent 16th-note grid) ---
+    // Drums (fixed 16th-note grid, independent pointer)
     while (_bgm.drumNext < c.currentTime + AHEAD) {
       const pos = _bgm.drumPos;
       if (_KICKS.has(pos))  _kick(_bgm.drumNext);
       if (_SNARES.has(pos)) _snare(_bgm.drumNext);
+      if (_HIHATS.has(pos)) _hihat(_bgm.drumNext);
       _bgm.drumNext += _16TH;
       _bgm.drumPos = (pos + 1) % _RIFF_CYCLE;
     }
@@ -222,7 +290,6 @@ const audio = (() => {
       }
     }
 
-    // Start BGM once the game is live (handles first tick or return from waiting)
     if (!_bgm) startBGM();
   }
 
