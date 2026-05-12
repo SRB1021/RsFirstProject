@@ -273,9 +273,30 @@ function enterGameScreen(ghostName, roomCode) {
   canvas.width  = MAZE_COLS * TILE_SIZE;
   canvas.height = MAZE_ROWS * TILE_SIZE;
 
+  fitCanvas();
   setupInput(socket);
   requestAnimationFrame(renderLoop);
 }
+
+function fitCanvas() {
+  const statusH = (document.getElementById('statusBar').offsetHeight || 36) + 4;
+  const scale = Math.min(
+    window.innerWidth / canvas.width,
+    (window.innerHeight - statusH) / canvas.height,
+    1
+  );
+  if (scale >= 1) {
+    canvas.style.transform    = '';
+    canvas.style.marginBottom = '';
+  } else {
+    canvas.style.transform    = `scale(${scale})`;
+    canvas.style.transformOrigin = 'top center';
+    // Collapse the phantom layout space left behind by transform
+    canvas.style.marginBottom = `${canvas.height * (scale - 1)}px`;
+  }
+}
+
+window.addEventListener('resize', fitCanvas);
 
 startGameBtn.addEventListener('click', () => {
   socket.emit('start_game');

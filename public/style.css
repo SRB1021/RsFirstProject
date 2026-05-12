@@ -375,3 +375,71 @@ body {
   color: #FFD700;
   text-shadow: 0 0 15px #FFD700;
 }
+
+/* ── Phone-only overrides (≤ 600px wide) ───────────────────────────────── */
+@media (max-width: 600px) {
+  body {
+    justify-content: flex-start;
+    align-items: stretch;
+  }
+
+  #lobby {
+    padding: 1rem 1rem 1.5rem;
+    overflow-y: auto;
+    max-height: 100dvh;
+  }
+
+  #lobby h1 {
+    font-size: clamp(1.5rem, 7vw, 2rem);
+    margin-bottom: 0.5rem;
+  }
+
+  #lobby > p {
+    margin-bottom: 1rem;
+    font-size: 0.85rem;
+  }
+
+  #ghostPicker {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  /* Bigger tap targets */
+  #createRoomBtn, #joinBtn, #restartBtn, #startGameBtn {
+    min-height: 48px;
+    font-size: 1rem;
+  }
+
+  #joinRoomBtn {
+    min-height: 48px;
+  }
+
+  #nameInput, #roomCodeInput {
+    min-height: 48px;
+  }
+
+  /* Game screen fills the whole viewport on phones */
+  #gameScreen {
+    width: 100vw;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  #statusBar {
+    flex-wrap: wrap;
+    gap: 0.2rem 0.75rem;
+    padding: 0.3rem 0.5rem;
+    font-size: 0.75rem;
+    margin-bottom: 2px;
+  }
+
+  #overlayTitle {
+    font-size: clamp(1.1rem, 5vw, 1.6rem);
+    text-align: center;
+    padding: 0 1rem;
+  }
+
+  #overlay {
+    top: 0;
+  }
+}
