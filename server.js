@@ -90,6 +90,14 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('toggle_pause', () => {
+    const code = socketRoom.get(socket.id);
+    const room = code && rooms.get(code);
+    if (!room || room.state.phase !== 'playing') return;
+    room.state.paused = !room.state.paused;
+    io.to(code).emit('pause_state', { paused: room.state.paused });
+  });
+
   socket.on('start_game', () => {
     const code = socketRoom.get(socket.id);
     const room = code && rooms.get(code);
@@ -190,7 +198,7 @@ function checkCollisions(state, code) {
 
 setInterval(() => {
   for (const [code, { state }] of rooms) {
-    if (state.phase !== 'playing') continue;
+    if (state.phase !== 'playing' || state.paused) continue;
 
     // Move ghosts
     for (const name of Object.keys(state.ghosts)) {

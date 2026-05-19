@@ -33,6 +33,8 @@ const roomCodeText2     = document.getElementById('roomCodeText2');
 const startGameBtn      = document.getElementById('startGameBtn');
 const waitingMsg        = document.getElementById('waitingMsg');
 const lobbyPlayerList   = document.getElementById('lobbyPlayerList');
+const pauseBtn          = document.getElementById('pauseBtn');
+const pauseOverlay      = document.getElementById('pauseOverlay');
 const joinNotification  = document.getElementById('joinNotification');
 
 let notifTimer = null;
@@ -191,6 +193,13 @@ roomCodeInput.addEventListener('input', () => {
 
 copyCodeBtn.addEventListener('click', () => copyCode(currentRoomCode));
 roomCodeLabel.addEventListener('click', () => currentRoomCode && copyCode(currentRoomCode));
+
+pauseBtn.addEventListener('click', () => socket.emit('toggle_pause'));
+
+socket.on('pause_state', ({ paused }) => {
+  pauseBtn.textContent       = paused ? '▶' : '⏸';
+  pauseOverlay.style.display = paused ? 'flex' : 'none';
+});
 
 // --- Join game handler ---
 

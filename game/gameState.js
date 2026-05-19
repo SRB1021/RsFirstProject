@@ -43,6 +43,7 @@ function createGameState() {
     dots,
     dotsRemaining: countDots(dots),
     phase: 'waiting',
+    paused: false,
     winner: null,
     playerCount: 0,
     difficulty: 10, // CPU Pac-Man always runs at max difficulty
@@ -128,6 +129,7 @@ function resetGame(state) {
     state.ghosts[name].inHouse = true;
     state.ghosts[name].exitTimer = EXIT_TIMERS[name];
   }
+  state.paused = false;
   state.phase = state.playerCount > 0 ? 'playing' : 'waiting';
 }
 
