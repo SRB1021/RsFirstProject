@@ -262,6 +262,6 @@ setInterval(() => {
   }
 }, 150);
 
-server.listen(PORT, () => {
-  console.log(`Ghost Pacman server running at http://localhost:${PORT}`);
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Ghost Pacman server running on port ${PORT}`);
 });
