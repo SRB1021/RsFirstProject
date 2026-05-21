@@ -336,6 +336,8 @@ body {
   width: 100%;
   justify-content: center;
   margin-bottom: 4px;
+  position: relative;
+  z-index: 20; /* sits above the pause overlay */
 }
 
 #playerLabel {

@@ -195,6 +195,7 @@ copyCodeBtn.addEventListener('click', () => copyCode(currentRoomCode));
 roomCodeLabel.addEventListener('click', () => currentRoomCode && copyCode(currentRoomCode));
 
 pauseBtn.addEventListener('click', () => socket.emit('toggle_pause'));
+pauseOverlay.addEventListener('click', () => socket.emit('toggle_pause'));
 
 socket.on('pause_state', ({ paused }) => {
   pauseBtn.textContent       = paused ? '▶' : '⏸';
